@@ -38,4 +38,14 @@ async function updateUserLocation({ userId, lon, lat }) {
   return rows[0] || null;
 }
 
-module.exports = { createUser, getUserByEmail, updateUserLocation };
+async function getUserById(id) {
+  const { rows } = await pool.query(
+    `SELECT id, full_name, email, phone, created_at, location_updated_at
+     FROM users
+     WHERE id = $1`,
+    [id]
+  );
+  return rows[0] || null;
+}
+
+module.exports = { createUser, getUserByEmail, updateUserLocation, getUserById };
