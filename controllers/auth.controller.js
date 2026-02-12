@@ -49,24 +49,24 @@ async function login(req, res) {
   try {
     const { email, password } = req.body;
 
-    // 1️⃣ basic validation
+    // basic validation
     if (!email || !password) {
       return res.status(400).json({ error: "Missing fields" });
     }
 
-    // 2️⃣ find user
+    // find user
     const user = await User.getUserByEmail(email);
     if (!user) {
       return res.status(400).json({ error: "Invalid credentials" });
     }
 
-    // 3️⃣ compare password
+    // compare password
     const match = await bcrypt.compare(password, user.password_hash);
     if (!match) {
       return res.status(400).json({ error: "Invalid credentials" });
     }
 
-    // 4️⃣ issue JWT
+    // issue JWT
     const token = jwt.sign(
       { userId: user.id },
       JWT_SECRET,
