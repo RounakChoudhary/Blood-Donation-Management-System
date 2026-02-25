@@ -4,44 +4,57 @@ const User = require("../models/user.model");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
+function signToken(user) {
+  if (!JWT_SECRET) {
+    throw new Error("JWT_SECRET is not set");
+  }
+  return jwt.sign(
+    { userId: user.id, role: user.role },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+}
+
 async function register(req, res) {
   try {
     const { full_name, email, password, phone } = req.body;
 
-    // basic validation
     if (!full_name || !email || !password || !phone) {
       return res.status(400).json({ error: "Missing fields" });
     }
 
-    // check existing user
     const existing = await User.getUserByEmail(email);
     if (existing) {
-      return res.status(400).json({ error: "Email already registered" });
+      return res.status(409).json({ error: "Email already registered" });
     }
 
-    // hash password
     const password_hash = await bcrypt.hash(password, 10);
 
-    // create user
+    // default role donor (your user.model.js supports role default)
     const user = await User.createUser({
       full_name,
       email,
       password_hash,
-      phone,
+      phone
     });
 
-    // create JWT
-    const token = jwt.sign(
-      { userId: user.id },
-      JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const token = signToken(user);
 
-    res.json({ token, user });
-
+    // Return safe user (no password_hash)
+    return res.status(201).json({
+      token,
+      user: {
+        id: user.id,
+        full_name: user.full_name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        created_at: user.created_at
+      }
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Server error" });
+    return res.status(500).json({ error: "Server error" });
   }
 }
 
@@ -49,35 +62,36 @@ async function login(req, res) {
   try {
     const { email, password } = req.body;
 
-    // basic validation
     if (!email || !password) {
       return res.status(400).json({ error: "Missing fields" });
     }
 
-    // find user
     const user = await User.getUserByEmail(email);
     if (!user) {
-      return res.status(400).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    // compare password
-    const match = await bcrypt.compare(password, user.password_hash);
-    if (!match) {
-      return res.status(400).json({ error: "Invalid credentials" });
+    const ok = await bcrypt.compare(password, user.password_hash);
+    if (!ok) {
+      return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    // issue JWT
-    const token = jwt.sign(
-      { userId: user.id },
-      JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const token = signToken(user);
 
-    res.json({ token });
-
+    return res.status(200).json({
+      token,
+      user: {
+        id: user.id,
+        full_name: user.full_name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        created_at: user.created_at
+      }
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Server error" });
+    return res.status(500).json({ error: "Server error" });
   }
 }
 
