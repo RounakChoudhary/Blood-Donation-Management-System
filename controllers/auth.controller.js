@@ -22,15 +22,28 @@ async function register(req, res) {
     if (!full_name || !email || !password || !phone) {
       return res.status(400).json({ error: "Missing fields" });
     }
+// Check for existing users with same email or phone 
+const conflicts = [];
 
-    const existing = await User.getUserByEmail(email);
-    if (existing) {
-      return res.status(409).json({ error: "Email already registered" });
-    }
+ const existingEmail = await User.getUserByEmail(email);
+     if (existingEmail) {
+       conflicts.push("email");
+     }
+
+ const existingPhone = await User.getUserByPhone(phone);
+     if (existingPhone) {
+       conflicts.push("phone");
+     }
+
+if (conflicts.length > 0) {
+     return res.status(409).json({
+       error: `${conflicts.join(" and ")} already registered`
+       });
+}
 
     const password_hash = await bcrypt.hash(password, 10);
 
-    // default role donor (your user.model.js supports role default)
+    // default role donor ( user.model.js supports role default)
     const user = await User.createUser({
       full_name,
       email,
