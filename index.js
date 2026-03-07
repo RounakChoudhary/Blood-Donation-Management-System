@@ -9,10 +9,14 @@ app.use(express.json());
 const authRoutes = require("./routes/auth.routes");
 const userRoutes = require("./routes/user.routes");
 const donorRoutes = require("./routes/donor.routes");
+const hospitalAuthRoutes = require("./routes/hospitalAuth.routes");
+const bloodRequestRoutes = require("./routes/bloodRequest.routes");
 
 app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
 app.use("/donors", donorRoutes);
+app.use("/hospitals", hospitalAuthRoutes);
+app.use("/blood-requests", bloodRequestRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
