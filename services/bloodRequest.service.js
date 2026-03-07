@@ -1,4 +1,5 @@
 const BloodRequest = require("../models/bloodRequest.model");
+const { sendWhatsAppForMatches } = require("./notification.service");
 
 function normalizeBloodGroup(value) {
   if (!value || typeof value !== "string") return null;
@@ -53,12 +54,15 @@ async function createEmergencyRequest({
     limit: Number(match_limit),
   });
 
+  const notificationResults = await sendWhatsAppForMatches(matches, request);
+
   return {
     ok: true,
     status: 201,
     request,
     initial_matches_count: matches.length,
     matches,
+    notifications: notificationResults,
   };
 }
 

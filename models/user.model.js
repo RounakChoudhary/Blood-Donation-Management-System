@@ -123,10 +123,45 @@ async function getUserById(id) {
   return rows[0] || null;
 }
 
+async function updateWhatsAppSettings({
+  userId,
+  whatsapp_phone,
+  whatsapp_opt_in,
+}) {
+  const query = `
+    UPDATE users
+    SET
+      whatsapp_phone = COALESCE($1, whatsapp_phone),
+      whatsapp_opt_in = COALESCE($2, whatsapp_opt_in),
+      whatsapp_opt_in_at = CASE
+        WHEN $2 = TRUE THEN NOW()
+        ELSE whatsapp_opt_in_at
+      END
+    WHERE id = $3
+    RETURNING
+      id,
+      full_name,
+      email,
+      phone,
+      whatsapp_phone,
+      whatsapp_opt_in,
+      whatsapp_opt_in_at;
+  `;
+
+  const { rows } = await pool.query(query, [
+    whatsapp_phone ?? null,
+    whatsapp_opt_in ?? null,
+    userId,
+  ]);
+
+  return rows[0] || null;
+}
+
 module.exports = {
   createUser,
   getUserByEmail,
   getUserByPhone,
   updateUserLocation,
   getUserById,
+  updateWhatsAppSettings,
 };
