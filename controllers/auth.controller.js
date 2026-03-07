@@ -8,8 +8,12 @@ function signToken(user) {
   if (!JWT_SECRET) {
     throw new Error("JWT_SECRET is not set");
   }
+
   return jwt.sign(
-    { userId: user.id, role: user.role },
+    {
+      userId: user.id,
+      role: user.role,
+    },
     JWT_SECRET,
     { expiresIn: "7d" }
   );
@@ -17,43 +21,44 @@ function signToken(user) {
 
 async function register(req, res) {
   try {
-    const { full_name, email, password, phone } = req.body;
+    const { full_name, email, password, phone, lon, lat } = req.body;
 
     if (!full_name || !email || !password || !phone) {
       return res.status(400).json({ error: "Missing fields" });
     }
-// Check for existing users with same email or phone 
-const conflicts = [];
 
- const existingEmail = await User.getUserByEmail(email);
-     if (existingEmail) {
-       conflicts.push("email");
-     }
+    const conflicts = [];
 
- const existingPhone = await User.getUserByPhone(phone);
-     if (existingPhone) {
-       conflicts.push("phone");
-     }
+    const existingEmail = await User.getUserByEmail(email);
+    if (existingEmail) {
+      conflicts.push("email");
+    }
 
-if (conflicts.length > 0) {
-     return res.status(409).json({
-       error: `${conflicts.join(" and ")} already registered`
-       });
-}
+    const existingPhone = await User.getUserByPhone(phone);
+    if (existingPhone) {
+      conflicts.push("phone");
+    }
+
+    if (conflicts.length > 0) {
+      return res.status(409).json({
+        error: `${conflicts.join(" and ")} already registered`,
+      });
+    }
 
     const password_hash = await bcrypt.hash(password, 10);
 
-    // default role donor ( user.model.js supports role default)
     const user = await User.createUser({
       full_name,
       email,
       password_hash,
-      phone
+      phone,
+      lon: lon ?? null,
+      lat: lat ?? null,
+      role: "user",
     });
 
     const token = signToken(user);
 
-    // Return safe user (no password_hash)
     return res.status(201).json({
       token,
       user: {
@@ -62,8 +67,8 @@ if (conflicts.length > 0) {
         email: user.email,
         phone: user.phone,
         role: user.role,
-        created_at: user.created_at
-      }
+        created_at: user.created_at,
+      },
     });
   } catch (err) {
     console.error(err);
@@ -99,8 +104,8 @@ async function login(req, res) {
         email: user.email,
         phone: user.phone,
         role: user.role,
-        created_at: user.created_at
-      }
+        created_at: user.created_at,
+      },
     });
   } catch (err) {
     console.error(err);
