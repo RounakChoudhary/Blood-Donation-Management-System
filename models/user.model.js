@@ -123,38 +123,23 @@ async function getUserById(id) {
   return rows[0] || null;
 }
 
-async function updateWhatsAppSettings({
-  userId,
-  whatsapp_phone,
-  whatsapp_opt_in,
-}) {
+async function getUsersByDonorIds(donorIds) {
+  if (!donorIds || donorIds.length === 0) return [];
+
   const query = `
-    UPDATE users
-    SET
-      whatsapp_phone = COALESCE($1, whatsapp_phone),
-      whatsapp_opt_in = COALESCE($2, whatsapp_opt_in),
-      whatsapp_opt_in_at = CASE
-        WHEN $2 = TRUE THEN NOW()
-        ELSE whatsapp_opt_in_at
-      END
-    WHERE id = $3
-    RETURNING
-      id,
-      full_name,
-      email,
-      phone,
-      whatsapp_phone,
-      whatsapp_opt_in,
-      whatsapp_opt_in_at;
+    SELECT
+      d.id AS donor_id,
+      u.id AS user_id,
+      u.full_name,
+      u.email,
+      u.phone
+    FROM donors d
+    JOIN users u ON u.id = d.user_id
+    WHERE d.id = ANY($1::int[])
   `;
 
-  const { rows } = await pool.query(query, [
-    whatsapp_phone ?? null,
-    whatsapp_opt_in ?? null,
-    userId,
-  ]);
-
-  return rows[0] || null;
+  const { rows } = await pool.query(query, [donorIds]);
+  return rows;
 }
 
 module.exports = {
@@ -163,5 +148,5 @@ module.exports = {
   getUserByPhone,
   updateUserLocation,
   getUserById,
-  updateWhatsAppSettings,
+  getUsersByDonorIds,
 };
