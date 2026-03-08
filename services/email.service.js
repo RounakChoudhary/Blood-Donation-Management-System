@@ -1,10 +1,10 @@
 const nodemailer = require("nodemailer");
 
-const APP_BASE_URL = process.env.APP_BASE_URL;
+const APP_BASE_URL = process.env.APP_BASE_URL || "http://localhost:3000";
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
+  port: Number(process.env.SMTP_PORT || 587),
   secure: false,
   auth: {
     user: process.env.SMTP_USER,
@@ -23,11 +23,10 @@ async function sendEmergencyEmail({
 
   const subject = "Emergency Blood Donation Request";
 
-  const text = `
-Nearby hospital needs ${bloodGroup} blood donors.
+  const text = `Nearby hospital needs ${bloodGroup} blood donors.
 
 Required units: ${unitsRequired}
-Distance: ${distanceKm} km
+Approx. distance: ${distanceKm} km
 
 Open this link to respond:
 ${link}
@@ -40,7 +39,10 @@ ${link}
     text,
   });
 
-  return info;
+  return {
+    messageId: info.messageId,
+    raw: info,
+  };
 }
 
 module.exports = {
