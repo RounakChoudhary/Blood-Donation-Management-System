@@ -4,6 +4,54 @@ const Hospital = require("../models/hospital.model");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
+async function registerHospital({ name, phone, address, lon, lat }) {
+  if (!name || !phone) {
+    return { ok: false, status: 400, error: "Missing fields" };
+  }
+
+  if (
+    lon === undefined ||
+    lat === undefined ||
+    Number.isNaN(Number(lon)) ||
+    Number.isNaN(Number(lat))
+  ) {
+    return { ok: false, status: 400, error: "Valid lon and lat are required" };
+  }
+
+  const existingPhone = await Hospital.getHospitalByPhone(phone);
+  if (existingPhone) {
+    return { ok: false, status: 409, error: "phone already registered" };
+  }
+
+  const hospital = await Hospital.createHospital({
+    name,
+    phone,
+    address: address ?? null,
+    lon: Number(lon),
+    lat: Number(lat),
+  });
+
+  return {
+    ok: true,
+    status: 201,
+    hospital,
+  };
+}
+
+async function listPendingHospitals({ limit = 50, offset = 0 }) {
+  const hospitals = await Hospital.getHospitalsByStatus(
+    "pending",
+    Number(limit),
+    Number(offset)
+  );
+
+  return {
+    ok: true,
+    status: 200,
+    hospitals,
+  };
+}
+
 async function loginHospital({ email, password }) {
   if (!email || !password) {
     return { ok: false, status: 400, error: "Missing fields" };
@@ -50,5 +98,7 @@ async function loginHospital({ email, password }) {
 }
 
 module.exports = {
+  registerHospital,
+  listPendingHospitals,
   loginHospital,
 };
