@@ -58,6 +58,48 @@ async function getHospitalByEmail(email) {
   return rows[0] || null;
 }
 
+async function getHospitalByPhone(phone) {
+  const { rows } = await pool.query(
+    `
+      SELECT
+        id,
+        name,
+        phone,
+        address,
+        email,
+        onboarding_status,
+        verified_at,
+        created_at
+      FROM hospitals
+      WHERE phone = $1
+    `,
+    [phone]
+  );
+  return rows[0] || null;
+}
+
+async function getHospitalsByStatus(status, limit = 50, offset = 0) {
+  const { rows } = await pool.query(
+    `
+      SELECT
+        id,
+        name,
+        phone,
+        address,
+        email,
+        onboarding_status,
+        verified_at,
+        created_at
+      FROM hospitals
+      WHERE onboarding_status = $1
+      ORDER BY created_at DESC
+      LIMIT $2 OFFSET $3
+    `,
+    [status, limit, offset]
+  );
+  return rows;
+}
+
 async function verifyHospital(hospitalId) {
   const { rows } = await pool.query(
     `
@@ -88,6 +130,8 @@ module.exports = {
   createHospital,
   getHospitalById,
   getHospitalByEmail,
+  getHospitalByPhone,
+  getHospitalsByStatus,
   verifyHospital,
   setHospitalAuth,
 };
