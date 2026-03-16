@@ -52,6 +52,76 @@ async function listPendingHospitals({ limit = 50, offset = 0 }) {
   };
 }
 
+async function verifyHospital({ hospital_id }) {
+  const id = Number(hospital_id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return { ok: false, status: 400, error: "Invalid hospital id" };
+  }
+
+  const existing = await Hospital.getHospitalById(id);
+  if (!existing) {
+    return { ok: false, status: 404, error: "Hospital not found" };
+  }
+
+  if (existing.onboarding_status === "verified") {
+    return { ok: true, status: 200, hospital: existing };
+  }
+
+  const hospital = await Hospital.verifyHospital(id);
+  if (!hospital) {
+    return { ok: false, status: 404, error: "Hospital not found" };
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    hospital,
+  };
+}
+
+async function setupHospitalAuth({ hospital_id, email, password }) {
+  if (!email || !password) {
+    return { ok: false, status: 400, error: "Missing fields" };
+  }
+
+  const id = Number(hospital_id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return { ok: false, status: 400, error: "Invalid hospital id" };
+  }
+
+  const existing = await Hospital.getHospitalById(id);
+  if (!existing) {
+    return { ok: false, status: 404, error: "Hospital not found" };
+  }
+
+  if (existing.onboarding_status !== "verified") {
+    return { ok: false, status: 403, error: "Hospital is not verified yet" };
+  }
+
+  const emailInUse = await Hospital.getHospitalByEmail(email);
+  if (emailInUse && emailInUse.id !== id) {
+    return { ok: false, status: 409, error: "email already registered" };
+  }
+
+  const password_hash = await bcrypt.hash(password, 10);
+
+  const hospital = await Hospital.setHospitalAuth({
+    hospitalId: id,
+    email,
+    password_hash,
+  });
+
+  if (!hospital) {
+    return { ok: false, status: 404, error: "Hospital not found" };
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    hospital,
+  };
+}
+
 async function loginHospital({ email, password }) {
   if (!email || !password) {
     return { ok: false, status: 400, error: "Missing fields" };
@@ -100,5 +170,7 @@ async function loginHospital({ email, password }) {
 module.exports = {
   registerHospital,
   listPendingHospitals,
+  verifyHospital,
+  setupHospitalAuth,
   loginHospital,
 };
