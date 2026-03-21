@@ -26,11 +26,14 @@ async function createUser({
       $4,
       $5,
       CASE
-        WHEN $6 IS NULL OR $7 IS NULL THEN NULL
-        ELSE ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography
+        WHEN $6::double precision IS NULL OR $7::double precision IS NULL THEN NULL
+        ELSE ST_SetSRID(
+          ST_MakePoint($6::double precision, $7::double precision),
+          4326
+        )::geography
       END,
       CASE
-        WHEN $6 IS NULL OR $7 IS NULL THEN NULL
+        WHEN $6::double precision IS NULL OR $7::double precision IS NULL THEN NULL
         ELSE NOW()
       END
     )
