@@ -112,9 +112,56 @@ async function createMatches({
   return rows;
 }
 
+async function listRequestsEligibleForAutoExpansion({
+  interval_minutes = 5,
+  limit = 50,
+}) {
+  const query = `
+    SELECT br.*
+    FROM blood_requests br
+    WHERE
+      br.search_radius_meters < 9000
+      AND br.last_radius_expanded_at <= NOW() - ($1 || ' minutes')::interval
+      AND NOT EXISTS (
+        SELECT 1
+        FROM blood_request_matches m
+        WHERE m.request_id = br.id
+          AND m.status = 'accepted'
+      )
+    ORDER BY br.last_radius_expanded_at ASC
+    LIMIT $2
+  `;
+
+  const { rows } = await pool.query(query, [Number(interval_minutes), Number(limit)]);
+  return rows;
+}
+
+async function updateSearchRadius({
+  request_id,
+  new_radius_meters,
+}) {
+  const query = `
+    UPDATE blood_requests
+    SET
+      search_radius_meters = $2,
+      last_radius_expanded_at = NOW()
+    WHERE id = $1
+      AND search_radius_meters < $2
+    RETURNING *
+  `;
+
+  const { rows } = await pool.query(query, [
+    Number(request_id),
+    Number(new_radius_meters),
+  ]);
+  return rows[0] || null;
+}
+
 module.exports = {
   createBloodRequest,
   getBloodRequestById,
   getBloodRequestsByHospitalId,
   createMatches,
+  listRequestsEligibleForAutoExpansion,
+  updateSearchRadius,
 };
