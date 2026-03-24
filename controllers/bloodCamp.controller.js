@@ -1,0 +1,75 @@
+const bloodCampService = require("../services/bloodCamp.service");
+
+async function propose(req, res) {
+  try {
+    const result = await bloodCampService.proposeCamp(req.body);
+
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    return res.status(result.status).json({
+      message: "Blood camp proposal submitted for review",
+      camp: result.camp,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+}
+
+async function review(req, res) {
+  try {
+    const { id } = req.params;
+    const { status } = req.body; // should be 'approved' or 'rejected'
+
+    const result = await bloodCampService.reviewCamp({
+      camp_id: id,
+      status,
+    });
+
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    return res.status(result.status).json({
+      message: `Blood camp ${status} successfully`,
+      camp: result.camp,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+}
+
+async function searchNearby(req, res) {
+  try {
+    const { lon, lat, radius_meters, start_date, end_date } = req.query;
+
+    const result = await bloodCampService.searchCamps({
+      lon,
+      lat,
+      radius_meters,
+      start_date,
+      end_date,
+    });
+
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    return res.status(result.status).json({
+      message: "Approved camps retrieved successfully",
+      camps: result.camps,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+}
+
+module.exports = {
+  propose,
+  review,
+  searchNearby,
+};
