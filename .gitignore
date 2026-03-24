@@ -1,2 +1,9 @@
 node_modules
 .env
+.agents
+dist
+.vscode
+.idea
+.DS_Store
+.agent
+.agentignore
