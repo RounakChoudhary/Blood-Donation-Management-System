@@ -45,6 +45,32 @@ ${link}
   };
 }
 
+async function sendCampStatusEmail({ to, campName, status }) {
+  const subject = `Blood Camp Proposal ${status.toUpperCase()}`;
+  
+  const text = `Hello,
+
+Your blood donation camp proposal for "${campName}" has been ${status}.
+${status === 'approved' ? 'It is now visible to donors in the area.' : 'Please contact the administration for more information.'}
+
+Thank you,
+Blood Donation System
+`;
+
+  const info = await transporter.sendMail({
+    from: `"Blood Donation System" <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    text,
+  });
+
+  return {
+    messageId: info.messageId,
+    raw: info,
+  };
+}
+
 module.exports = {
   sendEmergencyEmail,
+  sendCampStatusEmail,
 };
