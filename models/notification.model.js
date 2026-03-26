@@ -2,10 +2,10 @@ const pool = require("./db");
 
 async function createNotification({
   match_id,
-  channel = "whatsapp",
+  channel = "email",
   template_name = null,
   provider_message_id = null,
-  status = "queued",
+  status = "pending",
   error_message = null,
   payload = null,
   sent_at = null,
@@ -38,6 +38,39 @@ async function createNotification({
 
   const { rows } = await pool.query(query, values);
   return rows[0];
+}
+
+async function updateNotificationById({
+  id,
+  provider_message_id = null,
+  status = null,
+  error_message = null,
+  payload = null,
+  sent_at = null,
+}) {
+  const query = `
+    UPDATE notifications
+    SET
+      provider_message_id = COALESCE($2, provider_message_id),
+      status = COALESCE($3, status),
+      error_message = COALESCE($4, error_message),
+      payload = COALESCE($5, payload),
+      sent_at = COALESCE($6, sent_at),
+      updated_at = NOW()
+    WHERE id = $1
+    RETURNING *;
+  `;
+
+  const { rows } = await pool.query(query, [
+    id,
+    provider_message_id,
+    status,
+    error_message,
+    payload,
+    sent_at,
+  ]);
+
+  return rows[0] || null;
 }
 
 async function updateNotificationByProviderMessageId({
@@ -83,6 +116,7 @@ async function getNotificationByProviderMessageId(provider_message_id) {
 
 module.exports = {
   createNotification,
+  updateNotificationById,
   updateNotificationByProviderMessageId,
   getNotificationByProviderMessageId,
 };

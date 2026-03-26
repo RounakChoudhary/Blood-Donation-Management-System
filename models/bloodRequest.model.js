@@ -42,7 +42,12 @@ async function createBloodRequest({
 
 async function getBloodRequestById(id) {
   const { rows } = await pool.query(
-    `SELECT * FROM blood_requests WHERE id = $1`,
+    `
+      SELECT *
+      FROM blood_requests
+      WHERE id = $1
+        AND is_deleted = false
+    `,
     [id]
   );
   return rows[0] || null;
@@ -54,6 +59,7 @@ async function getBloodRequestsByHospitalId(hospital_id, limit = 50, offset = 0)
       SELECT *
       FROM blood_requests
       WHERE hospital_id = $1
+        AND is_deleted = false
       ORDER BY created_at DESC
       LIMIT $2 OFFSET $3
     `,
@@ -166,7 +172,7 @@ async function getAllBloodRequests(limit = 50, offset = 0, search = "") {
       SELECT *, COUNT(*) OVER() AS total_count
       FROM blood_requests
       WHERE is_deleted = false
-      AND (blood_type ILIKE $3 OR status ILIKE $3)
+      AND (blood_group::text ILIKE $3 OR status ILIKE $3)
       ORDER BY created_at DESC
       LIMIT $1 OFFSET $2
     `;
@@ -202,6 +208,21 @@ async function deleteBloodRequest(requestId) {
   return rows[0] || null;
 }
 
+async function updateBloodRequestStatus({ request_id, status }) {
+  const { rows } = await pool.query(
+    `
+      UPDATE blood_requests
+      SET status = $2
+      WHERE id = $1
+        AND is_deleted = false
+      RETURNING *
+    `,
+    [request_id, status]
+  );
+
+  return rows[0] || null;
+}
+
 module.exports = {
   createBloodRequest,
   getBloodRequestById,
@@ -212,4 +233,5 @@ module.exports = {
   getAllBloodRequests,
   countBloodRequests,
   deleteBloodRequest,
+  updateBloodRequestStatus,
 };

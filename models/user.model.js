@@ -43,6 +43,8 @@ async function createUser({
       email,
       phone,
       role,
+      email_verified,
+      is_active,
       created_at,
       location_updated_at;
   `;
@@ -61,6 +63,8 @@ async function getUserByEmail(email) {
       phone,
       password_hash,
       role,
+      email_verified,
+      is_active,
       created_at,
       location_updated_at
     FROM users
@@ -79,6 +83,8 @@ async function getUserByPhone(phone) {
       phone,
       password_hash,
       role,
+      email_verified,
+      is_active,
       created_at,
       location_updated_at
     FROM users
@@ -117,6 +123,8 @@ async function getUserById(id) {
       email,
       phone,
       role,
+      email_verified,
+      is_active,
       created_at,
       location_updated_at
     FROM users
@@ -202,6 +210,32 @@ async function deleteUser(userId) {
   return rows[0] || null;
 }
 
+async function activateUser(userId) {
+  const { rows } = await pool.query(
+    `
+      UPDATE users
+      SET
+        email_verified = TRUE,
+        is_active = TRUE
+      WHERE id = $1
+        AND is_deleted = false
+      RETURNING
+        id,
+        full_name,
+        email,
+        phone,
+        role,
+        email_verified,
+        is_active,
+        created_at,
+        location_updated_at
+    `,
+    [userId]
+  );
+
+  return rows[0] || null;
+}
+
 module.exports = {
   createUser,
   getUserByEmail,
@@ -213,4 +247,5 @@ module.exports = {
   countUsers,
   updateUserRole,
   deleteUser,
+  activateUser,
 };

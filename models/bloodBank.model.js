@@ -81,6 +81,7 @@ async function getBloodBankById(id) {
         created_at
       FROM blood_banks
       WHERE id = $1
+        AND is_deleted = false
     `,
     [id]
   );
@@ -97,6 +98,7 @@ async function getBloodBankByLicenseNumber(license_number) {
         onboarding_status
       FROM blood_banks
       WHERE license_number = $1
+        AND is_deleted = false
     `,
     [license_number]
   );
@@ -147,6 +149,7 @@ async function updateBloodBankStatus(bloodBankId, status) {
         onboarding_status = $2, 
         verified_at = CASE WHEN $2 = 'verified' THEN NOW() ELSE verified_at END
       WHERE id = $1
+        AND is_deleted = false
       RETURNING id, name, license_number, onboarding_status, verified_at
     `,
     [bloodBankId, status]

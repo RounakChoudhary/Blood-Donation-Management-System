@@ -31,6 +31,7 @@ async function getHospitalById(id) {
         created_at
       FROM hospitals
       WHERE id = $1
+        AND is_deleted = false
     `,
     [id]
   );
@@ -52,6 +53,7 @@ async function getHospitalByEmail(email) {
         created_at
       FROM hospitals
       WHERE email = $1
+        AND is_deleted = false
     `,
     [email]
   );
@@ -72,6 +74,7 @@ async function getHospitalByPhone(phone) {
         created_at
       FROM hospitals
       WHERE phone = $1
+        AND is_deleted = false
     `,
     [phone]
   );
@@ -92,6 +95,7 @@ async function getHospitalsByStatus(status, limit = 50, offset = 0) {
         created_at
       FROM hospitals
       WHERE onboarding_status = $1
+        AND is_deleted = false
       ORDER BY created_at DESC
       LIMIT $2 OFFSET $3
     `,
@@ -108,6 +112,7 @@ async function updateHospitalStatus(hospitalId, status) {
         onboarding_status = $2, 
         verified_at = CASE WHEN $2 = 'verified' THEN NOW() ELSE verified_at END
       WHERE id = $1
+        AND is_deleted = false
       RETURNING id, name, onboarding_status, verified_at
     `,
     [hospitalId, status]
@@ -120,7 +125,9 @@ async function setHospitalAuth({ hospitalId, email, password_hash }) {
     `
       UPDATE hospitals
       SET email = $1, password_hash = $2
-      WHERE id = $3 AND onboarding_status = 'verified'
+      WHERE id = $3
+        AND onboarding_status = 'verified'
+        AND is_deleted = false
       RETURNING id, name, email, onboarding_status
     `,
     [email, password_hash, hospitalId]

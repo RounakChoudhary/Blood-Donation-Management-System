@@ -49,8 +49,43 @@ async function updateMatchStatus(match_id, status) {
   return rows[0] || null;
 }
 
+async function getMatchResponseContext(match_id) {
+  const { rows } = await pool.query(
+    `
+      SELECT
+        m.id AS match_id,
+        m.status AS match_status,
+        m.donor_id,
+        d.user_id AS donor_user_id,
+        u.full_name AS donor_name,
+        u.email AS donor_email,
+        br.id AS request_id,
+        br.blood_group,
+        br.units_required,
+        h.id AS hospital_id,
+        h.name AS hospital_name,
+        h.email AS hospital_email
+      FROM blood_request_matches m
+      JOIN donors d
+        ON d.id = m.donor_id
+      JOIN users u
+        ON u.id = d.user_id
+      JOIN blood_requests br
+        ON br.id = m.request_id
+      JOIN hospitals h
+        ON h.id = br.hospital_id
+      WHERE m.id = $1
+      LIMIT 1
+    `,
+    [match_id]
+  );
+
+  return rows[0] || null;
+}
+
 module.exports = {
   getPendingMatchesForDonor,
   getMatchById,
   updateMatchStatus,
+  getMatchResponseContext,
 };
