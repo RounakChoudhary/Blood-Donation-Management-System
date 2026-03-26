@@ -67,7 +67,7 @@ async function verifyHospital({ hospital_id }) {
     return { ok: true, status: 200, hospital: existing };
   }
 
-  const hospital = await Hospital.verifyHospital(id);
+  const hospital = await Hospital.updateHospitalStatus(id, 'verified');
   if (!hospital) {
     return { ok: false, status: 404, error: "Hospital not found" };
   }
