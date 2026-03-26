@@ -7,8 +7,9 @@ async function getAllUsers(req, res) {
   try {
     const limit = parseInt(req.query.limit) || 50;
     const offset = parseInt(req.query.offset) || 0;
-    const users = await adminService.getAllUsers(limit, offset);
-    return res.json({ users });
+    const search = req.query.search || "";
+    const usersData = await adminService.getAllUsers(limit, offset, search);
+    return res.json(usersData);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Server Error" });
@@ -19,8 +20,9 @@ async function getAllHospitals(req, res) {
   try {
     const limit = parseInt(req.query.limit) || 50;
     const offset = parseInt(req.query.offset) || 0;
-    const hospitals = await adminService.getAllHospitals(limit, offset);
-    return res.json({ hospitals });
+    const search = req.query.search || "";
+    const hospitalsData = await adminService.getAllHospitals(limit, offset, search);
+    return res.json(hospitalsData);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Server Error" });
@@ -62,8 +64,9 @@ async function getAllBloodBanks(req, res) {
   try {
     const limit = parseInt(req.query.limit) || 50;
     const offset = parseInt(req.query.offset) || 0;
-    const bloodBanks = await adminService.getAllBloodBanks(limit, offset);
-    return res.json({ bloodBanks });
+    const search = req.query.search || "";
+    const bloodBanksData = await adminService.getAllBloodBanks(limit, offset, search);
+    return res.json(bloodBanksData);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Server Error" });
@@ -99,8 +102,9 @@ async function getAllBloodRequests(req, res) {
   try {
     const limit = parseInt(req.query.limit) || 50;
     const offset = parseInt(req.query.offset) || 0;
-    const bloodRequests = await adminService.getAllBloodRequests(limit, offset);
-    return res.json({ bloodRequests });
+    const search = req.query.search || "";
+    const bloodRequestsData = await adminService.getAllBloodRequests(limit, offset, search);
+    return res.json(bloodRequestsData);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Server Error" });
