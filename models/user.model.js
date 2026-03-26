@@ -145,23 +145,40 @@ async function getUsersByDonorIds(donorIds) {
   return rows;
 }
 
-async function getAllUsers(limit = 50, offset = 0) {
-  const query = `
-    SELECT
-      id,
-      full_name,
-      email,
-      phone,
-      role,
-      created_at,
-      location_updated_at
-    FROM users
-    WHERE is_deleted = false
-    ORDER BY created_at DESC
-    LIMIT $1 OFFSET $2
-  `;
-  const { rows } = await pool.query(query, [limit, offset]);
-  return rows;
+async function getAllUsers(limit = 50, offset = 0, search = "") {
+  let query;
+  let values;
+
+  if (search) {
+    query = `
+      SELECT
+        id, full_name, email, phone, role, created_at, location_updated_at,
+        COUNT(*) OVER() AS total_count
+      FROM users
+      WHERE is_deleted = false
+      AND (full_name ILIKE $3 OR email ILIKE $3 OR phone ILIKE $3)
+      ORDER BY created_at DESC
+      LIMIT $1 OFFSET $2
+    `;
+    values = [limit, offset, `%${search}%`];
+  } else {
+    query = `
+      SELECT
+        id, full_name, email, phone, role, created_at, location_updated_at,
+        COUNT(*) OVER() AS total_count
+      FROM users
+      WHERE is_deleted = false
+      ORDER BY created_at DESC
+      LIMIT $1 OFFSET $2
+    `;
+    values = [limit, offset];
+  }
+
+  const { rows } = await pool.query(query, values);
+  const totalCount = rows.length > 0 ? parseInt(rows[0].total_count, 10) : 0;
+  const data = rows.map(({ total_count, ...user }) => user);
+
+  return { data, totalCount };
 }
 
 async function countUsers() {

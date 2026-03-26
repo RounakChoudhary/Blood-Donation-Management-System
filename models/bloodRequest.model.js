@@ -157,12 +157,36 @@ async function updateSearchRadius({
   return rows[0] || null;
 }
 
-async function getAllBloodRequests(limit = 50, offset = 0) {
-  const { rows } = await pool.query(
-    'SELECT * FROM blood_requests WHERE is_deleted = false ORDER BY created_at DESC LIMIT $1 OFFSET $2',
-    [limit, offset]
-  );
-  return rows;
+async function getAllBloodRequests(limit = 50, offset = 0, search = "") {
+  let query;
+  let values;
+
+  if (search) {
+    query = `
+      SELECT *, COUNT(*) OVER() AS total_count
+      FROM blood_requests
+      WHERE is_deleted = false
+      AND (blood_type ILIKE $3 OR status ILIKE $3)
+      ORDER BY created_at DESC
+      LIMIT $1 OFFSET $2
+    `;
+    values = [limit, offset, `%${search}%`];
+  } else {
+    query = `
+      SELECT *, COUNT(*) OVER() AS total_count
+      FROM blood_requests
+      WHERE is_deleted = false
+      ORDER BY created_at DESC
+      LIMIT $1 OFFSET $2
+    `;
+    values = [limit, offset];
+  }
+
+  const { rows } = await pool.query(query, values);
+  const totalCount = rows.length > 0 ? parseInt(rows[0].total_count, 10) : 0;
+  const data = rows.map(({ total_count, ...request }) => request);
+
+  return { data, totalCount };
 }
 
 async function countBloodRequests() {

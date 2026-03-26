@@ -128,25 +128,40 @@ async function setHospitalAuth({ hospitalId, email, password_hash }) {
   return rows[0] || null;
 }
 
-async function getAllHospitals(limit = 50, offset = 0) {
-  const { rows } = await pool.query(
-    `
+async function getAllHospitals(limit = 50, offset = 0, search = "") {
+  let query;
+  let values;
+
+  if (search) {
+    query = `
       SELECT
-        id,
-        name,
-        phone,
-        address,
-        email,
-        onboarding_status,
-        verified_at,
-        created_at
+        id, name, phone, address, email, onboarding_status, verified_at, created_at,
+        COUNT(*) OVER() AS total_count
       FROM hospitals
+      WHERE is_deleted = false
+      AND (name ILIKE $3 OR email ILIKE $3 OR phone ILIKE $3)
       ORDER BY created_at DESC
       LIMIT $1 OFFSET $2
-    `,
-    [limit, offset]
-  );
-  return rows;
+    `;
+    values = [limit, offset, `%${search}%`];
+  } else {
+    query = `
+      SELECT
+        id, name, phone, address, email, onboarding_status, verified_at, created_at,
+        COUNT(*) OVER() AS total_count
+      FROM hospitals
+      WHERE is_deleted = false
+      ORDER BY created_at DESC
+      LIMIT $1 OFFSET $2
+    `;
+    values = [limit, offset];
+  }
+
+  const { rows } = await pool.query(query, values);
+  const totalCount = rows.length > 0 ? parseInt(rows[0].total_count, 10) : 0;
+  const data = rows.map(({ total_count, ...hospital }) => hospital);
+
+  return { data, totalCount };
 }
 
 async function countHospitals() {
