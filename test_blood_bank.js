@@ -71,9 +71,9 @@ async function runTests() {
     assert.strictEqual(res.jsonData.message, "Blood bank registration submitted for approval");
     assert.strictEqual(res.jsonData.bloodBank.onboarding_status, "pending");
     assert.strictEqual(res.jsonData.bloodBank.name, "City Blood Bank");
-    console.log("✅ Main registration flow works successfully.");
+    console.log(" Main registration flow works successfully.");
   } catch (err) {
-    console.error("❌ Test failed:", err.message);
+    console.error(" Test failed:", err.message);
     process.exit(1);
   }
 
@@ -91,9 +91,9 @@ async function runTests() {
   try {
     assert.strictEqual(resInvalid.statusCode, 400);
     assert.strictEqual(resInvalid.jsonData.error, "Missing required fields");
-    console.log("✅ Missing required fields validation works.");
+    console.log(" Missing required fields validation works.");
   } catch (err) {
-    console.error("❌ Test failed:", err.message);
+    console.error(" Test failed:", err.message);
     process.exit(1);
   }
 

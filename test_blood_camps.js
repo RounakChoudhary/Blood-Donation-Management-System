@@ -84,7 +84,7 @@ async function runTests() {
   assert.strictEqual(resPropose.statusCode, 201);
   assert.strictEqual(resPropose.jsonData.message, "Blood camp proposal submitted for review");
   assert.strictEqual(resPropose.jsonData.camp.approval_status, "pending");
-  console.log("✅ Camp Proposal Flow works successfully.");
+  console.log(" Camp Proposal Flow works successfully.");
 
   // --- Test 2: Review Camp (Approve) ---
   const reqReview = {
@@ -103,7 +103,7 @@ async function runTests() {
   assert.strictEqual(resReview.statusCode, 200);
   assert.strictEqual(resReview.jsonData.message, "Blood camp approved successfully");
   assert.strictEqual(resReview.jsonData.camp.approval_status, "approved");
-  console.log("✅ Admin Camp Approval works successfully.");
+  console.log(" Admin Camp Approval works successfully.");
 
   // --- Test 3: Search Nearby Camps ---
   const reqSearch = {
@@ -120,7 +120,7 @@ async function runTests() {
   await bloodCampController.searchNearby(reqSearch, resSearch);
   assert.strictEqual(resSearch.statusCode, 200);
   assert.strictEqual(resSearch.jsonData.camps[0].name, "Nearby Camp");
-  console.log("✅ Donor Nearby Camp Discovery works successfully.");
+  console.log(" Donor Nearby Camp Discovery works successfully.");
 
   console.log("All tests passed!");
   process.exit(0);
