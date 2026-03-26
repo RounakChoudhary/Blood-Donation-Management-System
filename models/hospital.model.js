@@ -100,15 +100,17 @@ async function getHospitalsByStatus(status, limit = 50, offset = 0) {
   return rows;
 }
 
-async function verifyHospital(hospitalId) {
+async function updateHospitalStatus(hospitalId, status) {
   const { rows } = await pool.query(
     `
       UPDATE hospitals
-      SET onboarding_status = 'verified', verified_at = NOW()
+      SET 
+        onboarding_status = $2, 
+        verified_at = CASE WHEN $2 = 'verified' THEN NOW() ELSE verified_at END
       WHERE id = $1
       RETURNING id, name, onboarding_status, verified_at
     `,
-    [hospitalId]
+    [hospitalId, status]
   );
   return rows[0] || null;
 }
@@ -126,12 +128,34 @@ async function setHospitalAuth({ hospitalId, email, password_hash }) {
   return rows[0] || null;
 }
 
+async function getAllHospitals(limit = 50, offset = 0) {
+  const { rows } = await pool.query(
+    `
+      SELECT
+        id,
+        name,
+        phone,
+        address,
+        email,
+        onboarding_status,
+        verified_at,
+        created_at
+      FROM hospitals
+      ORDER BY created_at DESC
+      LIMIT $1 OFFSET $2
+    `,
+    [limit, offset]
+  );
+  return rows;
+}
+
 module.exports = {
   createHospital,
   getHospitalById,
   getHospitalByEmail,
   getHospitalByPhone,
   getHospitalsByStatus,
-  verifyHospital,
+  updateHospitalStatus,
   setHospitalAuth,
+  getAllHospitals,
 };

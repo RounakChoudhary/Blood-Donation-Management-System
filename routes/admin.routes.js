@@ -12,14 +12,13 @@ router.use(adminMiddleware);
 // Users
 router.get("/users", adminController.getAllUsers);
 
-// Hospitals
+// Hospitals (RESTful PATCH for targeted status updates)
 router.get("/hospitals", adminController.getAllHospitals);
-router.put("/hospitals/:id/verify", adminController.verifyHospital);
+router.patch("/hospitals/:id/approve", adminController.approveHospital);
+router.patch("/hospitals/:id/reject", adminController.rejectHospital);
 
 // Blood Banks
 router.get("/blood-banks", adminController.getAllBloodBanks);
-
-// Blood Requests
-router.get("/blood-requests", adminController.getAllBloodRequests);
+router.patch("/blood-banks/:id/verify", adminController.verifyBloodBank);
 
 module.exports = router;

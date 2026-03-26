@@ -145,6 +145,24 @@ async function getUsersByDonorIds(donorIds) {
   return rows;
 }
 
+async function getAllUsers(limit = 50, offset = 0) {
+  const query = `
+    SELECT
+      id,
+      full_name,
+      email,
+      phone,
+      role,
+      created_at,
+      location_updated_at
+    FROM users
+    ORDER BY created_at DESC
+    LIMIT $1 OFFSET $2
+  `;
+  const { rows } = await pool.query(query, [limit, offset]);
+  return rows;
+}
+
 module.exports = {
   createUser,
   getUserByEmail,
@@ -152,4 +170,5 @@ module.exports = {
   updateUserLocation,
   getUserById,
   getUsersByDonorIds,
+  getAllUsers,
 };

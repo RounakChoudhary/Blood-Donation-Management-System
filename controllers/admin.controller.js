@@ -1,39 +1,86 @@
+const adminService = require("../services/admin.service");
+
+// Basic validation helper
+const isValidId = (id) => !isNaN(parseInt(id)) && parseInt(id) > 0;
+
 async function getAllUsers(req, res) {
   try {
-    return res.status(501).json({ error: "Not Implemented" });
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = parseInt(req.query.offset) || 0;
+    const users = await adminService.getAllUsers(limit, offset);
+    return res.json({ users });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ error: "Server Error" });
   }
 }
 
 async function getAllHospitals(req, res) {
   try {
-    return res.status(501).json({ error: "Not Implemented" });
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = parseInt(req.query.offset) || 0;
+    const hospitals = await adminService.getAllHospitals(limit, offset);
+    return res.json({ hospitals });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ error: "Server Error" });
   }
 }
 
-async function verifyHospital(req, res) {
+async function approveHospital(req, res) {
   try {
-    return res.status(501).json({ error: "Not Implemented" });
+    const { id } = req.params;
+    if (!isValidId(id)) return res.status(400).json({ error: "Invalid hospital ID" });
+    
+    // Existing DB uses 'verified' instead of 'approved' to represent active status
+    const hospital = await adminService.updateHospitalStatus(id, "verified");
+    if (!hospital) return res.status(404).json({ error: "Hospital not found" });
+    
+    return res.json({ message: "Hospital approved successfully", hospital });
   } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server Error" });
+  }
+}
+
+async function rejectHospital(req, res) {
+  try {
+    const { id } = req.params;
+    if (!isValidId(id)) return res.status(400).json({ error: "Invalid hospital ID" });
+    
+    const hospital = await adminService.updateHospitalStatus(id, "rejected");
+    if (!hospital) return res.status(404).json({ error: "Hospital not found" });
+    
+    return res.json({ message: "Hospital rejected successfully", hospital });
+  } catch (error) {
+    console.error(error);
     return res.status(500).json({ error: "Server Error" });
   }
 }
 
 async function getAllBloodBanks(req, res) {
   try {
-    return res.status(501).json({ error: "Not Implemented" });
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = parseInt(req.query.offset) || 0;
+    const bloodBanks = await adminService.getAllBloodBanks(limit, offset);
+    return res.json({ bloodBanks });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ error: "Server Error" });
   }
 }
 
-async function getAllBloodRequests(req, res) {
+async function verifyBloodBank(req, res) {
   try {
-    return res.status(501).json({ error: "Not Implemented" });
+    const { id } = req.params;
+    if (!isValidId(id)) return res.status(400).json({ error: "Invalid blood bank ID" });
+
+    const bloodBank = await adminService.updateBloodBankStatus(id, "verified");
+    if (!bloodBank) return res.status(404).json({ error: "Blood bank not found" });
+
+    return res.json({ message: "Blood bank verified successfully", bloodBank });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ error: "Server Error" });
   }
 }
@@ -41,7 +88,8 @@ async function getAllBloodRequests(req, res) {
 module.exports = {
   getAllUsers,
   getAllHospitals,
-  verifyHospital,
+  approveHospital,
+  rejectHospital,
   getAllBloodBanks,
-  getAllBloodRequests,
+  verifyBloodBank
 };
