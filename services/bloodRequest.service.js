@@ -71,28 +71,59 @@ async function createEmergencyRequest({
   });
 
   const notificationResults = await sendEmailForMatches(matches, request);
+  const requestStatus = matches.length > 0 ? "matched" : "open";
+
+  const updatedRequest = await BloodRequest.updateBloodRequestStatus({
+    request_id: request.id,
+    status: requestStatus,
+  });
 
   return {
     ok: true,
     status: 201,
-    request,
+    request: updatedRequest || request,
     initial_matches_count: matches.length,
     matches,
     notifications: notificationResults,
   };
 }
 
-async function rematchRequest({ request_id, radius_meters = 5000, limit = 25 }) {
+async function getRequestForHospital({ request_id, hospital_id }) {
   const request = await BloodRequest.getBloodRequestById(request_id);
   if (!request) {
     return { ok: false, status: 404, error: "Blood request not found" };
   }
 
+  if (request.hospital_id !== hospital_id) {
+    return { ok: false, status: 403, error: "Forbidden" };
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    request,
+  };
+}
+
+async function rematchRequest({ hospital_id, request_id, radius_meters, limit = 25 }) {
+  const requestResult = await getRequestForHospital({ request_id, hospital_id });
+  if (!requestResult.ok) {
+    return requestResult;
+  }
+
+  const request = requestResult.request;
   const matches = await BloodRequest.createMatches({
     request_id,
-    radius_meters: Number(radius_meters),
+    radius_meters: Number(radius_meters ?? request.search_radius_meters ?? 5000),
     limit: Number(limit),
   });
+
+  if (matches.length > 0 && request.status !== "matched") {
+    await BloodRequest.updateBloodRequestStatus({
+      request_id,
+      status: "matched",
+    });
+  }
 
   return {
     ok: true,
@@ -202,6 +233,7 @@ async function runAutoRadiusExpansionBatch({
 
 module.exports = {
   createEmergencyRequest,
+  getRequestForHospital,
   rematchRequest,
   listHospitalRequests,
   runAutoRadiusExpansionBatch,

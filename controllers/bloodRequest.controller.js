@@ -1,5 +1,4 @@
 const bloodRequestService = require("../services/bloodRequest.service");
-const BloodRequest = require("../models/bloodRequest.model");
 
 async function createRequest(req, res) {
   try {
@@ -26,17 +25,16 @@ async function createRequest(req, res) {
 
 async function getRequestById(req, res) {
   try {
-    const request = await BloodRequest.getBloodRequestById(req.params.id);
+    const result = await bloodRequestService.getRequestForHospital({
+      request_id: req.params.id,
+      hospital_id: req.hospital.id,
+    });
 
-    if (!request) {
-      return res.status(404).json({ error: "Blood request not found" });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
     }
 
-    if (request.hospital_id !== req.hospital.id) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-
-    return res.json({ request });
+    return res.json({ request: result.request });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });
@@ -60,19 +58,10 @@ async function listMyRequests(req, res) {
 
 async function rematch(req, res) {
   try {
-    const request = await BloodRequest.getBloodRequestById(req.params.id);
-
-    if (!request) {
-      return res.status(404).json({ error: "Blood request not found" });
-    }
-
-    if (request.hospital_id !== req.hospital.id) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-
     const result = await bloodRequestService.rematchRequest({
+      hospital_id: req.hospital.id,
       request_id: Number(req.params.id),
-      radius_meters: req.body.radius_meters ?? request.search_radius_meters ?? 5000,
+      radius_meters: req.body.radius_meters,
       limit: req.body.limit ?? 25,
     });
 
