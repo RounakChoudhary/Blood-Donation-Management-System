@@ -26,14 +26,14 @@ async function authMiddleware(req, res, next) {
 
     // Verify user still exists and is not soft-deleted
     const userExists = await userModel.getUserById(decoded.userId);
-    if (!userExists) {
+    if (!userExists || !userExists.is_active) {
       return res.status(403).json({ error: "Account deleted or inactive" });
     }
 
     req.userId = decoded.userId;
     req.user = {
       id: decoded.userId,
-      role: decoded.role,
+      role: userExists.role,
     };
 
     next();

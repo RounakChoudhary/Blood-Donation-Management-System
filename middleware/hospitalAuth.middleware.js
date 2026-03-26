@@ -1,8 +1,9 @@
 const jwt = require("jsonwebtoken");
+const Hospital = require("../models/hospital.model");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-function hospitalAuth(req, res, next) {
+async function hospitalAuth(req, res, next) {
   try {
     if (!JWT_SECRET) {
       return res.status(500).json({ error: "JWT_SECRET is not configured" });
@@ -25,14 +26,19 @@ function hospitalAuth(req, res, next) {
       return res.status(403).json({ error: "Hospital access required" });
     }
 
-    if (!decoded.isVerified) {
+    const hospital = await Hospital.getHospitalById(decoded.hospitalId);
+    if (!hospital) {
+      return res.status(403).json({ error: "Hospital account not found or inactive" });
+    }
+
+    if (!decoded.isVerified || hospital.onboarding_status !== "verified") {
       return res.status(403).json({ error: "Only verified hospitals can access this route" });
     }
 
     req.hospital = {
-      id: decoded.hospitalId,
+      id: hospital.id,
       actorType: decoded.actorType,
-      isVerified: decoded.isVerified,
+      isVerified: true,
     };
 
     next();

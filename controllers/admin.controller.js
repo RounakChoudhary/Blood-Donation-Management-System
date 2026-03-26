@@ -116,7 +116,7 @@ async function updateUserRole(req, res) {
     const { id } = req.params;
     const { role } = req.body;
     if (!isValidId(id)) return res.status(400).json({ error: "Invalid user ID" });
-    if (!role || !["user", "admin", "hospital", "blood_bank"].includes(role)) {
+    if (!role || !["user", "admin"].includes(role)) {
       return res.status(400).json({ error: "Invalid or missing role parameter" });
     }
 

@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const Hospital = require("../models/hospital.model");
 
 const JWT_SECRET = process.env.JWT_SECRET;
+const BCRYPT_ROUNDS = 12;
 
 async function registerHospital({ name, phone, address, lon, lat }) {
   if (!name || !phone) {
@@ -103,7 +104,7 @@ async function setupHospitalAuth({ hospital_id, email, password }) {
     return { ok: false, status: 409, error: "email already registered" };
   }
 
-  const password_hash = await bcrypt.hash(password, 10);
+  const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
   const hospital = await Hospital.setHospitalAuth({
     hospitalId: id,
@@ -152,7 +153,7 @@ async function loginHospital({ email, password }) {
       isVerified: true,
     },
     JWT_SECRET,
-    { expiresIn: "7d" }
+    { expiresIn: "24h" }
   );
 
   return {

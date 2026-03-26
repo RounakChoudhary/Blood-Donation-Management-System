@@ -7,3 +7,6 @@ dist
 .DS_Store
 .agent
 .agentignore
+count_loc.js
+test_blood_bank.js
+test_blood_camps.js

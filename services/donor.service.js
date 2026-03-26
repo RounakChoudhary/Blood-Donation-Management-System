@@ -15,7 +15,7 @@ const ALLOWED_BLOOD_GROUPS = new Set([
   "O+",
   "O-",
 ]);
-const ALLOWED_AVAILABILITY = new Set(["available", "paused", "busy"]);
+const ALLOWED_AVAILABILITY = new Set(["available", "paused", "busy", "unavailable"]);
 
 function validateAge(age) {
   const numAge = Number(age);
