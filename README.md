@@ -88,73 +88,75 @@ Manual blood donation coordination between donors, hospitals, and blood banks ca
 
 ## 👥 User Roles & Access Control
 
-RBAC is enforced at the middleware layer via `requireRole.js` on every protected endpoint. No cross-role access is possible by design.
+RBAC is enforced at the middleware layer via `requireRole.js` for user/admin routes, while verified hospital access is enforced through `hospitalAuth.middleware.js`.
 
 | Role | Description | Key Capabilities |
 |------|-------------|-----------------|
-| `donor` | Registered blood donor | View eligibility, respond to emergency requests, view donation history |
-| `hospital_staff` | Hospital medical/admin personnel | Create & track emergency + regular blood requests |
-| `blood_bank_staff` | Blood bank personnel | Manage inventory, donation records, camp operations |
-| `camp_organiser` | Camp event organisers | Submit camp proposals, track approval status |
-| `admin` | System administrator | Verify hospitals & blood banks, manage users, system configuration, reports |
+| `user` | Registered platform user | Register, verify OTP, create donor profile, manage donor availability |
+| `admin` | System administrator | Verify hospitals, review camps, access admin routes, manage users |
+| `hospital` | Verified hospital actor via hospital JWT | Create blood requests, rematch donors, view own requests |
+| `blood_bank` | Registered blood bank entity | Registration is implemented; full authenticated blood bank module is still in progress |
 
 ---
 
 ## ✨ Features by Module
 
 ### 🔐 Auth & User Management
-- **Donor registration** with browser geolocation capture, age validation (18–65), and **email OTP verification** (6-digit code, 10-minute TTL via Nodemailer)
-- Account remains inactive until OTP is verified — no system access before confirmation
-- **Hospital & Blood Bank registration** with admin verification workflow before activation
-- JWT HS256 login with role-based dashboard routing; account locked after 5 failed attempts within 15 minutes
+- **Donor registration** with OTP-based email verification (6-digit code, 10-minute TTL via Nodemailer)
+- Donor accounts remain inactive until OTP verification succeeds
+- **Hospital registration** with admin verification and separate hospital auth setup/login
+- **Blood bank registration** with pending onboarding status
+- JWT login with **24-hour expiry**
 - `requireRole.js` middleware enforces role separation across all endpoints
 - All passwords hashed with bcrypt (minimum cost factor 12)
 - All database queries use parameterised statements — SQL injection prevented by design
 
 ### 🚨 Emergency Blood Request Management
 - **Verified hospitals only** may create emergency requests — enforced via hospital auth middleware
-- One open request per blood group per hospital enforced at controller level
-- Urgency levels: `Critical` | `Urgent` | `Routine`
-- **Geospatial donor matching** via PostGIS `ST_DWithin` with ABO/Rh blood-group compatibility filter (`utils/bloodCompat.js`), 90-day donation cooldown check, results sorted by `ST_Distance`
-- **Dynamic radius expansion**: default 3 km → 6 km → 9 km, triggered every 5 minutes if no donor response *(Sprint 5)*
-- Nearby blood banks notified of urgent requirements *(Sprint 5)*
+- Blood request lifecycle persisted with `open | matched | fulfilled | cancelled`
+- **Geospatial donor matching** via PostGIS `ST_DWithin` with ABO/Rh compatibility from `utils/bloodCompat.js`, cooldown filtering, availability filtering, and `ST_Distance` sorting
+- Radius expansion service logic exists for `3 km -> 6 km -> 9 km`, but scheduler wiring is still pending
+- Blood bank emergency notification flow is still pending
 
 ### 📧 Email Notification Service
-- HTML emails dispatched via Nodemailer/SMTP containing hospital name, blood group, urgency, and a **tokenised deep-link** (2-hour expiry) for donor accept/decline
-- Retry logic: 3 attempts with exponential back-off (5 s → 25 s → 125 s) on delivery failure
-- All delivery events (sent, failed, retried) recorded in `email_log` table via migration
-- WhatsApp integration fully removed in v2.2 — email is the sole notification and OTP channel
+- Nodemailer/SMTP email delivery for OTPs, emergency donor alerts, camp status emails, and hospital acceptance notifications
+- Emergency donor alert emails include **single-use signed deep-links** for accept/decline
+- Deep-link tokens are stored as **hashes only** and expire after **2 hours**
+- Retry logic is implemented with exponential backoff: **5s -> 25s -> 125s**
+- Delivery state is tracked in both `notifications` and `email_log` with `pending | sent | failed`
+- Runtime notification pipeline is **email-only**; no WhatsApp fallback exists in application code
 
 ### 💉 Donor Response Flow
 - Donor receives email with tokenised deep-link; clicks to accept or decline without logging in
-- Token authenticated server-side (2-hour TTL); response recorded; donor availability set to `Unavailable` on acceptance
+- Token authenticated server-side (2-hour TTL, single-use, hash stored only)
+- Response recorded against the matched request
+- Donor availability is set to `unavailable` on acceptance
 - Hospital notified of donor acceptance via email immediately
 
 ### 👤 Donor Profile Management
-- 90-day donation cooldown enforced at controller level (computed from last confirmed donation date)
-- Eligibility status displayed on donor dashboard
-- Email address and blood group are **immutable** after OTP verification
-- Phone, address, geolocation, and availability status are updatable
+- Donor volunteer onboarding validates age, BMI, blood group, and last donation date
+- Cooldown eligibility is computed from `last_donation_date` and `deferred_until`
+- Donor profile retrieval and availability updates are implemented
+- Full donor profile edit workflow and donation history module are still pending
 
 ### 🏕 Blood Donation Camp Management *(Passive Discovery Model)*
-- Organiser submits camp proposal (name, date, time, venue, geolocation, capacity, organiser contact, optional approval document)
+- Organiser submits camp proposal (name, date, time, venue, geolocation, capacity, organiser contact)
 - Admin reviews and approves/rejects; organiser notified via email
 - Approved camps listed for donor discovery by proximity and date range
 - System does **not** process on-site registrations or record donations — passive information model only
 
 ### 📍 Location Services
-- Find nearby blood banks within a given radius using PostGIS
-- Find eligible donors by blood group, proximity, and cooldown status
-- GIST spatial indexes on all donor and facility location columns for query performance
+- Find eligible donors by blood group, proximity, cooldown status, and availability
+- GIST spatial indexes are used on user, hospital, blood bank, request, and camp locations
+- Dedicated nearby blood bank API is not implemented yet
 
 ### 📊 Report Generation *(Sprint 6)*
-- Donation summary report across date range
-- Emergency response performance report: average donor response time, total requests fulfilled
+- Reporting modules are pending implementation
 
 ### 🛡 Admin Console *(Sprint 5)*
-- Verify hospitals and blood banks with licence validation
-- Activate, deactivate, or restrict user accounts
-- System configuration: matching radius, cooldown period, max donors to notify per request, SMTP sender identity
+- Admin routes exist for users, hospitals, blood banks, and blood requests
+- Hospital verification and blood bank verification endpoints exist
+- Broader system configuration and reporting screens are still pending
 
 ---
 
@@ -164,23 +166,30 @@ Managed via incremental SQL migration files under `database/`. Existing migratio
 
 ```
 Core Tables
-  Users          — base auth + role for all user types
-  Donors         — profile, geolocation (PostGIS geography), blood group, availability
-  Hospitals      — registration, location, verification status
-  BloodBanks     — registration, location, inventory, verification status
+  Users          — base auth, role, activation flags, soft-delete flag
+  Donors         — profile, blood group, cooldown, availability
+  Hospitals      — registration, verification, optional hospital login, soft-delete flag
+  BloodBanks     — registration, verification, optional auth fields, soft-delete flag
 
 Emergency & Matching
-  EmergencyRequests  — blood group, urgency, hospital, status
-  DonationRecords    — donor, hospital, date, blood group, units (cooldown source)
+  EmergencyRequests  — blood group, units, hospital, location, radius, status, soft-delete flag
+  BloodRequestMatches — matched donor records and donor response status
+  ResponseTokens     — hashed single-use donor response tokens (2-hour TTL)
 
-Camp & Notifications
-  BloodCamps    — proposals, approval status, location, organiser
-  EmailLog      — all notification delivery events (sent / failed / retried)
+Auth & Notifications
+  OtpTokens     — hashed OTP verification records with expiry and consumption tracking
+  Notifications — email notification lifecycle records
+  EmailLog      — delivery events, attempts, last attempt time, final status
+
+Camp
+  BloodCamps    — proposals, approval status, location, organiser details
 
 Spatial Indexes
-  GIST index on Donors.location
+  GIST index on Users.location
   GIST index on Hospitals.location
   GIST index on BloodBanks.location
+  GIST index on BloodRequests.location
+  GIST index on BloodCamps.location
 
 Blood Compatibility
   utils/bloodCompat.js — ABO/Rh compatibility matrix hardcoded
@@ -190,7 +199,7 @@ Blood Compatibility
 
 ## 📡 API Reference
 
-All routes are prefixed with `/api/v1` (or per MVC route files). Protected routes require `Authorization: Bearer <token>`.
+Routes are mounted directly from `index.js`. Protected routes require `Authorization: Bearer <token>`.
 
 ### Auth — Donors
 | Method | Route | Access | FR |
@@ -198,7 +207,6 @@ All routes are prefixed with `/api/v1` (or per MVC route files). Protected route
 | `POST` | `/auth/register` | Public | FR 4.1.1 |
 | `POST` | `/auth/login` | Public | FR 4.1.4 |
 | `POST` | `/auth/verify-otp` | Public | FR 4.1.1 |
-| `POST` | `/auth/forgot-password` | Public | FR 4.1.5 |
 
 ### Auth — Hospitals
 | Method | Route | Access | FR |
@@ -206,37 +214,53 @@ All routes are prefixed with `/api/v1` (or per MVC route files). Protected route
 | `POST` | `/blood-banks/register` | Public | FR 4.1.2 |
 | `POST` | `/hospitals/register` | Public | FR 4.1.3 |
 | `POST` | `/hospitals/login` | Public | FR 4.1.4 |
+| `GET` | `/hospitals/pending` | `admin` | FR 4.9.2 |
+| `POST` | `/hospitals/:id/verify` | `admin` | FR 4.9.2 |
+| `POST` | `/hospitals/:id/setup-auth` | `admin` | FR 4.1.3 |
 
 ### Donors
 | Method | Route | Access | FR |
 |--------|-------|--------|-----|
 | `POST` | `/donors/become-volunteer` | Authenticated | FR 4.4.1 |
-| `GET` | `/donors/me` | `donor` | FR 4.4.1 |
-| `PATCH` | `/donors/availability` | `donor` | FR 4.4.2 |
-| `GET` | `/donor-requests` | `donor` | FR 4.2.4 |
-| `POST` | `/donor-requests/:matchId/accept` | `donor` | FR 4.2.4 |
-| `POST` | `/donor-requests/:matchId/reject` | `donor` | FR 4.2.4 |
+| `GET` | `/donors/me` | Authenticated | FR 4.4.1 |
+| `PATCH` | `/donors/availability` | Authenticated | FR 4.4.2 |
+| `GET` | `/donor-requests` | Authenticated | FR 4.2.4 |
+| `POST` | `/donor-requests/:matchId/accept` | Authenticated | FR 4.2.4 |
+| `POST` | `/donor-requests/:matchId/reject` | Authenticated | FR 4.2.4 |
+| `GET` | `/donor-requests/respond/accept?token=...` | Public | FR 4.2.4 |
+| `GET` | `/donor-requests/respond/decline?token=...` | Public | FR 4.2.4 |
 
 ### Emergency Blood Requests
 | Method | Route | Access | FR |
 |--------|-------|--------|-----|
-| `POST` | `/blood-requests` | `hospital_staff` (verified) | FR 4.2.1 |
-| `GET` | `/blood-requests/mine` | `hospital_staff` | FR 4.5.2 |
-| `POST` | `/blood-requests/:id/match` | `hospital_staff` | FR 4.2.2 |
+| `POST` | `/blood-requests` | Verified hospital | FR 4.2.1 |
+| `GET` | `/blood-requests/mine` | Verified hospital | FR 4.5.2 |
+| `GET` | `/blood-requests/:id` | Verified hospital | FR 4.5.2 |
+| `POST` | `/blood-requests/:id/match` | Verified hospital | FR 4.2.2 |
 
-### Location Services
+### Camps
 | Method | Route | Access | FR |
 |--------|-------|--------|-----|
-| `GET` | `/donors/nearby` | `hospital_staff`, `admin` | FR 4.6.2 |
-| `GET` | `/blood-banks/nearby` | All authenticated | FR 4.6.1 |
+| `POST` | `/camps` | Public | FR 4.3.1 |
+| `POST` | `/camps/:id/review` | `admin` | FR 4.3.2 |
+| `GET` | `/camps/nearby` | Public | FR 4.3.3 |
 
 ### Admin
 | Method | Route | Access | FR |
 |--------|-------|--------|-----|
-| `GET` | `/admin/hospitals/pending` | `admin` | FR 4.9.2 |
-| `POST` | `/admin/hospitals/:id/verify` | `admin` | FR 4.9.2 |
 | `GET` | `/admin/users` | `admin` | FR 4.9.3 |
-| `PATCH` | `/admin/users/:id` | `admin` | FR 4.9.3 |
+| `PATCH` | `/admin/users/:id/role` | `admin` | FR 4.9.3 |
+| `DELETE` | `/admin/users/:id` | `admin` | FR 4.9.3 |
+| `GET` | `/admin/hospitals` | `admin` | FR 4.9.2 |
+| `PATCH` | `/admin/hospitals/:id/approve` | `admin` | FR 4.9.2 |
+| `PATCH` | `/admin/hospitals/:id/reject` | `admin` | FR 4.9.2 |
+| `DELETE` | `/admin/hospitals/:id` | `admin` | FR 4.9.2 |
+| `GET` | `/admin/blood-banks` | `admin` | FR 4.9.2 |
+| `PATCH` | `/admin/blood-banks/:id/verify` | `admin` | FR 4.9.2 |
+| `DELETE` | `/admin/blood-banks/:id` | `admin` | FR 4.9.2 |
+| `GET` | `/admin/blood-requests` | `admin` | FR 4.9.x |
+| `DELETE` | `/admin/blood-requests/:id` | `admin` | FR 4.9.x |
+| `GET` | `/admin/stats` | `admin` | FR 4.9.x |
 
 ---
 
@@ -257,7 +281,7 @@ All routes are prefixed with `/api/v1` (or per MVC route files). Protected route
 *Feb 15 – Feb 26, 2026*
 
 - [x] `requireRole.js` RBAC middleware enforcing role separation across all endpoints
-- [x] Emergency request creation model with one-open-request-per-blood-group enforcement (FR 4.2.1)
+- [x] Emergency request creation and donor matching pipeline (FR 4.2.1, FR 4.2.2)
 - [x] Blood compatibility filtering via `utils/bloodCompat.js`
 - [x] 90-day donation cooldown data model and controller enforcement (FR 4.4.1)
 - [x] Hospital onboarding — register, pending list, verify, auth setup, hospital login (FR 4.1.3 extended)
@@ -271,9 +295,8 @@ All routes are prefixed with `/api/v1` (or per MVC route files). Protected route
 - [x] Retry logic — 3 attempts, exponential back-off (5 s → 25 s → 125 s)
 - [x] All delivery events recorded in `email_log` table via migration
 - [x] Donor accept/decline response flow — token auth, response recorded, hospital notified on acceptance (FR 4.2.4)
-- [x] Donor dashboard — eligibility status, donation history, notification actions
-- [x] Hospital dashboard — request creation and status tracking
-- [x] WhatsApp fully removed; email is sole OTP, notification, and alert channel
+- [x] OTP-gated donor account activation before login
+- [x] Runtime notification pipeline is email-only
 
 ### 🔲 Sprint 4 — Frontend Dashboards
 *Mar 15 – Mar 31, 2026*
@@ -290,7 +313,7 @@ All routes are prefixed with `/api/v1` (or per MVC route files). Protected route
 - [ ] Camp proposal submission, admin approval/rejection, organiser notification (FR 4.3.1, FR 4.3.2)
 - [ ] Camp discovery by donors — proximity + date range search (FR 4.3.3)
 - [ ] Admin console — verify hospitals/blood banks, manage users, system config (FR 4.9.1–4.9.4)
-- [ ] Dynamic radius expansion — 3 km → 6 km → 9 km on no-response timeout (FR 4.2.5)
+- [ ] Wire dynamic radius expansion service into a scheduler/job runner (FR 4.2.5)
 - [ ] Nearby blood bank notification on emergency request (FR 4.2.6)
 - [ ] Password reset via email with single-use 30-minute token (FR 4.1.5)
 
@@ -316,8 +339,13 @@ cd Blood-Donation-Management-System
 npm install
 
 # Configure environment variables
-cp .env.example .env
-# Set: DATABASE_URL, JWT_SECRET, SMTP_HOST, SMTP_USER, SMTP_PASS
+# Create .env manually and set:
+# DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
+# JWT_SECRET
+# SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
+# APP_BASE_URL
+# RESPONSE_TOKEN_SECRET (recommended)
+# OTP_TTL_MINUTES (optional)
 
 # Run database migrations (incremental SQL files under database/)
 # Apply each migration file in order using your PostgreSQL client
@@ -336,7 +364,7 @@ node index.js
 ## 🧠 Design Decisions
 
 ### WhatsApp → Email (v2.2)
-WhatsApp integration via Twilio was originally planned but removed in SRS v2.2. Reasons: Twilio requires a paid subscription with sandbox approval overhead, significant implementation complexity, and third-party platform dependency. Nodemailer/SMTP is free (Gmail App Password or SendGrid free tier), simpler to implement, and delivers directly — with no platform intermediary. WhatsApp has been fully removed from all interfaces, constraints, and the codebase.
+WhatsApp integration via Twilio was originally planned but removed in SRS v2.2. Nodemailer/SMTP is the only runtime notification channel used by the backend. Because migrations are append-only, historical legacy migration files still document the removed WhatsApp design, but application code no longer uses it.
 
 ### Passive Camp Discovery Model
 The system does not process on-site attendee registrations or record donations from camps. It acts purely as an information intermediary — publishing approved camp listings for donor discovery. This avoids out-of-scope complexity (on-site ops, physical donation recording) and keeps the system boundary clean.
@@ -348,7 +376,7 @@ All schema changes are applied as new numbered SQL migration files under `databa
 Donor search uses `ST_DWithin` for radius filtering combined with ABO/Rh compatibility (`utils/bloodCompat.js`), 90-day cooldown check, and `ST_Distance` for distance-sorted ranking. GIST spatial indexes are placed on all location columns to meet the 3-second performance requirement for up to 10,000 donors.
 
 ### Tokenised Deep-Links for Donor Response
-Rather than requiring donors to log in to respond to emergency alerts, each email contains a tokenised URL (2-hour TTL). The server authenticates the token server-side, records the response, and updates request status — minimising friction during time-critical donation decisions.
+Rather than requiring donors to log in to respond to emergency alerts, each email contains a tokenised URL (2-hour TTL). The raw token is signed and only its hash is stored in the database. The server validates the link, records the response, marks the token single-use, and updates donor availability on acceptance.
 
 ---
 
