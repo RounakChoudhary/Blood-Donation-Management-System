@@ -85,11 +85,55 @@ async function verifyBloodBank(req, res) {
   }
 }
 
+async function getAdminStats(req, res) {
+  try {
+    const stats = await adminService.getAdminStats();
+    return res.json({ stats });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server Error" });
+  }
+}
+
+async function getAllBloodRequests(req, res) {
+  try {
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = parseInt(req.query.offset) || 0;
+    const bloodRequests = await adminService.getAllBloodRequests(limit, offset);
+    return res.json({ bloodRequests });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server Error" });
+  }
+}
+
+async function updateUserRole(req, res) {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+    if (!isValidId(id)) return res.status(400).json({ error: "Invalid user ID" });
+    if (!role || !["user", "admin", "hospital", "blood_bank"].includes(role)) {
+      return res.status(400).json({ error: "Invalid or missing role parameter" });
+    }
+
+    const updatedUser = await adminService.updateUserRole(id, role);
+    if (!updatedUser) return res.status(404).json({ error: "User not found" });
+
+    return res.json({ message: "User role updated successfully", user: updatedUser });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server Error" });
+  }
+}
+
 module.exports = {
   getAllUsers,
   getAllHospitals,
   approveHospital,
   rejectHospital,
   getAllBloodBanks,
-  verifyBloodBank
+  verifyBloodBank,
+  getAdminStats,
+  getAllBloodRequests,
+  updateUserRole
 };

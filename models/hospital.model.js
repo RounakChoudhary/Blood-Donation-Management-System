@@ -149,6 +149,11 @@ async function getAllHospitals(limit = 50, offset = 0) {
   return rows;
 }
 
+async function countHospitals() {
+  const { rows } = await pool.query('SELECT COUNT(*) FROM hospitals');
+  return parseInt(rows[0].count);
+}
+
 module.exports = {
   createHospital,
   getHospitalById,
@@ -158,4 +163,5 @@ module.exports = {
   updateHospitalStatus,
   setHospitalAuth,
   getAllHospitals,
+  countHospitals,
 };

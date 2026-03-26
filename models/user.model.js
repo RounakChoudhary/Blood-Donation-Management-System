@@ -163,6 +163,19 @@ async function getAllUsers(limit = 50, offset = 0) {
   return rows;
 }
 
+async function countUsers() {
+  const { rows } = await pool.query('SELECT COUNT(*) FROM users');
+  return parseInt(rows[0].count);
+}
+
+async function updateUserRole(userId, role) {
+  const { rows } = await pool.query(
+    'UPDATE users SET role = $1 WHERE id = $2 RETURNING id, full_name, email, role',
+    [role, userId]
+  );
+  return rows[0] || null;
+}
+
 module.exports = {
   createUser,
   getUserByEmail,
@@ -171,4 +184,6 @@ module.exports = {
   getUserById,
   getUsersByDonorIds,
   getAllUsers,
+  countUsers,
+  updateUserRole,
 };

@@ -143,10 +143,16 @@ async function updateBloodBankStatus(bloodBankId, status) {
   return rows[0] || null;
 }
 
+async function countBloodBanks() {
+  const { rows } = await pool.query('SELECT COUNT(*) FROM blood_banks');
+  return parseInt(rows[0].count);
+}
+
 module.exports = {
   createBloodBank,
   getBloodBankById,
   getBloodBankByLicenseNumber,
   getAllBloodBanks,
   updateBloodBankStatus,
+  countBloodBanks,
 };

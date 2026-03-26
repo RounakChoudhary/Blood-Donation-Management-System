@@ -157,6 +157,19 @@ async function updateSearchRadius({
   return rows[0] || null;
 }
 
+async function getAllBloodRequests(limit = 50, offset = 0) {
+  const { rows } = await pool.query(
+    'SELECT * FROM blood_requests ORDER BY created_at DESC LIMIT $1 OFFSET $2',
+    [limit, offset]
+  );
+  return rows;
+}
+
+async function countBloodRequests() {
+  const { rows } = await pool.query('SELECT COUNT(*) FROM blood_requests');
+  return parseInt(rows[0].count);
+}
+
 module.exports = {
   createBloodRequest,
   getBloodRequestById,
@@ -164,4 +177,6 @@ module.exports = {
   createMatches,
   listRequestsEligibleForAutoExpansion,
   updateSearchRadius,
+  getAllBloodRequests,
+  countBloodRequests,
 };
