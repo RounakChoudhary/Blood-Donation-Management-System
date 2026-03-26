@@ -126,6 +126,58 @@ async function updateUserRole(req, res) {
   }
 }
 
+async function deleteUser(req, res) {
+  try {
+    const { id } = req.params;
+    if (!isValidId(id)) return res.status(400).json({ error: "Invalid user ID" });
+    const result = await adminService.deleteUser(id);
+    if (!result) return res.status(404).json({ error: "User not found or already deleted" });
+    return res.json({ message: "Deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server Error" });
+  }
+}
+
+async function deleteHospital(req, res) {
+  try {
+    const { id } = req.params;
+    if (!isValidId(id)) return res.status(400).json({ error: "Invalid hospital ID" });
+    const result = await adminService.deleteHospital(id);
+    if (!result) return res.status(404).json({ error: "Hospital not found or already deleted" });
+    return res.json({ message: "Deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server Error" });
+  }
+}
+
+async function deleteBloodBank(req, res) {
+  try {
+    const { id } = req.params;
+    if (!isValidId(id)) return res.status(400).json({ error: "Invalid blood bank ID" });
+    const result = await adminService.deleteBloodBank(id);
+    if (!result) return res.status(404).json({ error: "Blood bank not found or already deleted" });
+    return res.json({ message: "Deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server Error" });
+  }
+}
+
+async function deleteBloodRequest(req, res) {
+  try {
+    const { id } = req.params;
+    if (!isValidId(id)) return res.status(400).json({ error: "Invalid blood request ID" });
+    const result = await adminService.deleteBloodRequest(id);
+    if (!result) return res.status(404).json({ error: "Blood request not found or already deleted" });
+    return res.json({ message: "Deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server Error" });
+  }
+}
+
 module.exports = {
   getAllUsers,
   getAllHospitals,
@@ -135,5 +187,9 @@ module.exports = {
   verifyBloodBank,
   getAdminStats,
   getAllBloodRequests,
-  updateUserRole
+  updateUserRole,
+  deleteUser,
+  deleteHospital,
+  deleteBloodBank,
+  deleteBloodRequest
 };

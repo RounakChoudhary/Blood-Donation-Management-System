@@ -45,6 +45,22 @@ async function updateUserRole(userId, role) {
   return await userModel.updateUserRole(userId, role);
 }
 
+async function deleteUser(id) {
+  return await userModel.deleteUser(id);
+}
+
+async function deleteHospital(id) {
+  return await hospitalModel.deleteHospital(id);
+}
+
+async function deleteBloodBank(id) {
+  return await bloodBankModel.deleteBloodBank(id);
+}
+
+async function deleteBloodRequest(id) {
+  return await bloodRequestModel.deleteBloodRequest(id);
+}
+
 module.exports = {
   getAllUsers,
   getAllHospitals,
@@ -54,4 +70,8 @@ module.exports = {
   getAdminStats,
   getAllBloodRequests,
   updateUserRole,
+  deleteUser,
+  deleteHospital,
+  deleteBloodBank,
+  deleteBloodRequest,
 };
