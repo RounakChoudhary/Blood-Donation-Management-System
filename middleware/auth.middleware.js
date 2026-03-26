@@ -2,7 +2,9 @@ const jwt = require("jsonwebtoken");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-function authMiddleware(req, res, next) {
+const userModel = require("../models/user.model");
+
+async function authMiddleware(req, res, next) {
   try {
     if (!JWT_SECRET) {
       return res.status(500).json({ error: "JWT_SECRET is not configured" });
@@ -21,6 +23,12 @@ function authMiddleware(req, res, next) {
 
     const token = parts[1];
     const decoded = jwt.verify(token, JWT_SECRET);
+
+    // Verify user still exists and is not soft-deleted
+    const userExists = await userModel.getUserById(decoded.userId);
+    if (!userExists) {
+      return res.status(403).json({ error: "Account deleted or inactive" });
+    }
 
     req.userId = decoded.userId;
     req.user = {
