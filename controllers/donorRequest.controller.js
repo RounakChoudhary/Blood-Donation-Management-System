@@ -59,8 +59,54 @@ async function reject(req, res) {
   }
 }
 
+async function acceptViaToken(req, res) {
+  try {
+    const result = await donorRequestService.respondToRequestByToken({
+      token: req.query.token,
+      action: "accepted",
+    });
+
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    return res.json({
+      message: "Request accepted via secure email link",
+      match: result.match,
+      donor: result.donor,
+      hospital_notified: result.hospital_notified,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+}
+
+async function rejectViaToken(req, res) {
+  try {
+    const result = await donorRequestService.respondToRequestByToken({
+      token: req.query.token,
+      action: "declined",
+    });
+
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    return res.json({
+      message: "Request declined via secure email link",
+      match: result.match,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+}
+
 module.exports = {
   listRequests,
   accept,
   reject,
+  acceptViaToken,
+  rejectViaToken,
 };
