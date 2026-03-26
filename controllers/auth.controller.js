@@ -1,8 +1,10 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user.model");
+const otpService = require("../services/otp.service");
 
 const JWT_SECRET = process.env.JWT_SECRET;
+const BCRYPT_ROUNDS = 12;
 
 function signToken(user) {
   if (!JWT_SECRET) {
@@ -15,7 +17,7 @@ function signToken(user) {
       role: user.role,
     },
     JWT_SECRET,
-    { expiresIn: "7d" }
+    { expiresIn: "24h" }
   );
 }
 
@@ -45,7 +47,7 @@ async function register(req, res) {
       });
     }
 
-    const password_hash = await bcrypt.hash(password, 10);
+    const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
     const user = await User.createUser({
       full_name,
@@ -57,16 +59,18 @@ async function register(req, res) {
       role: "user",
     });
 
-    const token = signToken(user);
+    await otpService.issueEmailVerificationOtp(user);
 
     return res.status(201).json({
-      token,
+      message: "Registration successful. Verify the OTP sent to your email to activate your account.",
       user: {
         id: user.id,
         full_name: user.full_name,
         email: user.email,
         phone: user.phone,
         role: user.role,
+        email_verified: user.email_verified,
+        is_active: user.is_active,
         created_at: user.created_at,
       },
     });
@@ -87,6 +91,10 @@ async function login(req, res) {
     const user = await User.getUserByEmail(email);
     if (!user) {
       return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    if (!user.email_verified || !user.is_active) {
+      return res.status(403).json({ error: "Account is not activated. Verify OTP first." });
     }
 
     const ok = await bcrypt.compare(password, user.password_hash);
@@ -113,4 +121,34 @@ async function login(req, res) {
   }
 }
 
-module.exports = { register, login };
+async function verifyOtp(req, res) {
+  try {
+    const { email, otp } = req.body;
+    const result = await otpService.verifyEmailVerificationOtp({ email, otp });
+
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    return res.status(result.status).json({
+      message: result.already_verified
+        ? "Account is already verified"
+        : "OTP verified successfully. Account activated.",
+      user: {
+        id: result.user.id,
+        full_name: result.user.full_name,
+        email: result.user.email,
+        phone: result.user.phone,
+        role: result.user.role,
+        email_verified: result.user.email_verified,
+        is_active: result.user.is_active,
+        created_at: result.user.created_at,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+}
+
+module.exports = { register, login, verifyOtp };
