@@ -64,7 +64,7 @@ async function getUserByEmail(email) {
       created_at,
       location_updated_at
     FROM users
-    WHERE email = $1
+    WHERE email = $1 AND is_deleted = false
   `;
   const { rows } = await pool.query(query, [email]);
   return rows[0] || null;
@@ -82,7 +82,7 @@ async function getUserByPhone(phone) {
       created_at,
       location_updated_at
     FROM users
-    WHERE phone = $1
+    WHERE phone = $1 AND is_deleted = false
   `;
   const { rows } = await pool.query(query, [phone]);
   return rows[0] || null;
@@ -120,7 +120,7 @@ async function getUserById(id) {
       created_at,
       location_updated_at
     FROM users
-    WHERE id = $1
+    WHERE id = $1 AND is_deleted = false
   `;
   const { rows } = await pool.query(query, [id]);
   return rows[0] || null;
@@ -138,7 +138,7 @@ async function getUsersByDonorIds(donorIds) {
       u.phone
     FROM donors d
     JOIN users u ON u.id = d.user_id
-    WHERE d.id = ANY($1::int[])
+    WHERE d.id = ANY($1::int[]) AND u.is_deleted = false
   `;
 
   const { rows } = await pool.query(query, [donorIds]);
@@ -156,6 +156,7 @@ async function getAllUsers(limit = 50, offset = 0) {
       created_at,
       location_updated_at
     FROM users
+    WHERE is_deleted = false
     ORDER BY created_at DESC
     LIMIT $1 OFFSET $2
   `;
@@ -164,14 +165,22 @@ async function getAllUsers(limit = 50, offset = 0) {
 }
 
 async function countUsers() {
-  const { rows } = await pool.query('SELECT COUNT(*) FROM users');
+  const { rows } = await pool.query('SELECT COUNT(*) FROM users WHERE is_deleted = false');
   return parseInt(rows[0].count);
 }
 
 async function updateUserRole(userId, role) {
   const { rows } = await pool.query(
-    'UPDATE users SET role = $1 WHERE id = $2 RETURNING id, full_name, email, role',
+    'UPDATE users SET role = $1 WHERE id = $2 AND is_deleted = false RETURNING id, full_name, email, role',
     [role, userId]
+  );
+  return rows[0] || null;
+}
+
+async function deleteUser(userId) {
+  const { rows } = await pool.query(
+    'UPDATE users SET is_deleted = true WHERE id = $1 AND is_deleted = false RETURNING id',
+    [userId]
   );
   return rows[0] || null;
 }
@@ -186,4 +195,5 @@ module.exports = {
   getAllUsers,
   countUsers,
   updateUserRole,
+  deleteUser,
 };

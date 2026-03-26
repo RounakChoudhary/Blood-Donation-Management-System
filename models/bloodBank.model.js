@@ -144,8 +144,16 @@ async function updateBloodBankStatus(bloodBankId, status) {
 }
 
 async function countBloodBanks() {
-  const { rows } = await pool.query('SELECT COUNT(*) FROM blood_banks');
+  const { rows } = await pool.query('SELECT COUNT(*) FROM blood_banks WHERE is_deleted = false');
   return parseInt(rows[0].count);
+}
+
+async function deleteBloodBank(bloodBankId) {
+  const { rows } = await pool.query(
+    'UPDATE blood_banks SET is_deleted = true WHERE id = $1 AND is_deleted = false RETURNING id',
+    [bloodBankId]
+  );
+  return rows[0] || null;
 }
 
 module.exports = {
@@ -155,4 +163,5 @@ module.exports = {
   getAllBloodBanks,
   updateBloodBankStatus,
   countBloodBanks,
+  deleteBloodBank,
 };

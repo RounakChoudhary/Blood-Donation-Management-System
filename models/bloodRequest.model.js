@@ -159,15 +159,23 @@ async function updateSearchRadius({
 
 async function getAllBloodRequests(limit = 50, offset = 0) {
   const { rows } = await pool.query(
-    'SELECT * FROM blood_requests ORDER BY created_at DESC LIMIT $1 OFFSET $2',
+    'SELECT * FROM blood_requests WHERE is_deleted = false ORDER BY created_at DESC LIMIT $1 OFFSET $2',
     [limit, offset]
   );
   return rows;
 }
 
 async function countBloodRequests() {
-  const { rows } = await pool.query('SELECT COUNT(*) FROM blood_requests');
+  const { rows } = await pool.query('SELECT COUNT(*) FROM blood_requests WHERE is_deleted = false');
   return parseInt(rows[0].count);
+}
+
+async function deleteBloodRequest(requestId) {
+  const { rows } = await pool.query(
+    'UPDATE blood_requests SET is_deleted = true WHERE id = $1 AND is_deleted = false RETURNING id',
+    [requestId]
+  );
+  return rows[0] || null;
 }
 
 module.exports = {
@@ -179,4 +187,5 @@ module.exports = {
   updateSearchRadius,
   getAllBloodRequests,
   countBloodRequests,
+  deleteBloodRequest,
 };

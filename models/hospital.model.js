@@ -150,8 +150,16 @@ async function getAllHospitals(limit = 50, offset = 0) {
 }
 
 async function countHospitals() {
-  const { rows } = await pool.query('SELECT COUNT(*) FROM hospitals');
+  const { rows } = await pool.query('SELECT COUNT(*) FROM hospitals WHERE is_deleted = false');
   return parseInt(rows[0].count);
+}
+
+async function deleteHospital(hospitalId) {
+  const { rows } = await pool.query(
+    'UPDATE hospitals SET is_deleted = true WHERE id = $1 AND is_deleted = false RETURNING id',
+    [hospitalId]
+  );
+  return rows[0] || null;
 }
 
 module.exports = {
@@ -164,4 +172,5 @@ module.exports = {
   setHospitalAuth,
   getAllHospitals,
   countHospitals,
+  deleteHospital,
 };
