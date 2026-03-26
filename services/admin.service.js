@@ -3,20 +3,34 @@ const hospitalModel = require("../models/hospital.model");
 const bloodBankModel = require("../models/bloodBank.model");
 const bloodRequestModel = require("../models/bloodRequest.model");
 
-async function getAllUsers(limit = 50, offset = 0) {
-  return await userModel.getAllUsers(limit, offset);
+function _formatPaginatedResponse(result, limit, offset) {
+  return {
+    data: result.data,
+    pagination: {
+      totalCount: result.totalCount,
+      currentPage: Math.floor(offset / limit) + 1,
+      totalPages: Math.ceil(result.totalCount / limit) || 1
+    }
+  };
 }
 
-async function getAllHospitals(limit = 50, offset = 0) {
-  return await hospitalModel.getAllHospitals(limit, offset);
+async function getAllUsers(limit = 50, offset = 0, search = "") {
+  const result = await userModel.getAllUsers(limit, offset, search);
+  return _formatPaginatedResponse(result, limit, offset);
+}
+
+async function getAllHospitals(limit = 50, offset = 0, search = "") {
+  const result = await hospitalModel.getAllHospitals(limit, offset, search);
+  return _formatPaginatedResponse(result, limit, offset);
 }
 
 async function updateHospitalStatus(hospitalId, status) {
   return await hospitalModel.updateHospitalStatus(hospitalId, status);
 }
 
-async function getAllBloodBanks(limit = 50, offset = 0) {
-  return await bloodBankModel.getAllBloodBanks(limit, offset);
+async function getAllBloodBanks(limit = 50, offset = 0, search = "") {
+  const result = await bloodBankModel.getAllBloodBanks(limit, offset, search);
+  return _formatPaginatedResponse(result, limit, offset);
 }
 
 async function updateBloodBankStatus(bloodBankId, status) {
@@ -37,8 +51,9 @@ async function getAdminStats() {
   };
 }
 
-async function getAllBloodRequests(limit = 50, offset = 0) {
-  return await bloodRequestModel.getAllBloodRequests(limit, offset);
+async function getAllBloodRequests(limit = 50, offset = 0, search = "") {
+  const result = await bloodRequestModel.getAllBloodRequests(limit, offset, search);
+  return _formatPaginatedResponse(result, limit, offset);
 }
 
 async function updateUserRole(userId, role) {
