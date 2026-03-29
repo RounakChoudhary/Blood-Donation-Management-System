@@ -38,16 +38,33 @@ async function updateBloodBankStatus(bloodBankId, status) {
 }
 
 async function getAdminStats() {
-  const totalUsers = await userModel.countUsers();
-  const totalHospitals = await hospitalModel.countHospitals();
-  const totalBloodBanks = await bloodBankModel.countBloodBanks();
-  const totalBloodRequests = await bloodRequestModel.countBloodRequests();
-  
+  const [
+    totalUsers,
+    totalHospitals,
+    totalBloodBanks,
+    totalBloodRequests,
+    requestsToday,
+    fulfilledBloodRequests,
+  ] = await Promise.all([
+    userModel.countUsers(),
+    hospitalModel.countHospitals(),
+    bloodBankModel.countBloodBanks(),
+    bloodRequestModel.countBloodRequests(),
+    bloodRequestModel.countBloodRequestsToday(),
+    bloodRequestModel.countFulfilledBloodRequests(),
+  ]);
+
+  const fulfillmentRate = totalBloodRequests > 0
+    ? Number(((fulfilledBloodRequests / totalBloodRequests) * 100).toFixed(1))
+    : 0;
+
   return {
     users: totalUsers,
     hospitals: totalHospitals,
     bloodBanks: totalBloodBanks,
-    bloodRequests: totalBloodRequests
+    bloodRequests: totalBloodRequests,
+    requestsToday,
+    fulfillmentRate,
   };
 }
 

@@ -46,12 +46,17 @@ function getStoredToken() {
 }
 
 function toDashboardData(stats = {}) {
+  const parsedFulfillmentRate = Number(stats.fulfillmentRate);
+  const hasFulfillmentRate = Number.isFinite(parsedFulfillmentRate);
+
   return {
     ...FALLBACK_ADMIN_DASHBOARD,
     metrics: {
       totalDonors: Number(stats.users || 0).toLocaleString(),
-      requestsToday: Number(stats.bloodRequests || 0),
-      fulfillmentRate: "N/A",
+      requestsToday: Number(stats.requestsToday ?? stats.bloodRequests ?? 0),
+      fulfillmentRate: hasFulfillmentRate
+        ? `${parsedFulfillmentRate.toFixed(1)}%`
+        : FALLBACK_ADMIN_DASHBOARD.metrics.fulfillmentRate,
     },
   };
 }

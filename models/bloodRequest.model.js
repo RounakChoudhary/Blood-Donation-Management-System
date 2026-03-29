@@ -200,6 +200,31 @@ async function countBloodRequests() {
   return parseInt(rows[0].count);
 }
 
+async function countBloodRequestsToday() {
+  const { rows } = await pool.query(
+    `
+      SELECT COUNT(*) AS count
+      FROM blood_requests
+      WHERE is_deleted = false
+        AND created_at >= CURRENT_DATE
+        AND created_at < CURRENT_DATE + INTERVAL '1 day'
+    `
+  );
+  return parseInt(rows[0].count, 10);
+}
+
+async function countFulfilledBloodRequests() {
+  const { rows } = await pool.query(
+    `
+      SELECT COUNT(*) AS count
+      FROM blood_requests
+      WHERE is_deleted = false
+        AND status = 'fulfilled'
+    `
+  );
+  return parseInt(rows[0].count, 10);
+}
+
 async function deleteBloodRequest(requestId) {
   const { rows } = await pool.query(
     'UPDATE blood_requests SET is_deleted = true WHERE id = $1 AND is_deleted = false RETURNING id',
@@ -232,6 +257,8 @@ module.exports = {
   updateSearchRadius,
   getAllBloodRequests,
   countBloodRequests,
+  countBloodRequestsToday,
+  countFulfilledBloodRequests,
   deleteBloodRequest,
   updateBloodRequestStatus,
 };
