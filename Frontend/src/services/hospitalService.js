@@ -2,9 +2,48 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000
 
 const FALLBACK_HOSPITAL_DASHBOARD = {
   activeRequests: [
-    { id: 1, group: "O-", hosp: "City General Hospital", info: "4 Units - Required ASAP", status: "critical" },
-    { id: 2, group: "A+", hosp: "St. Mary Medical", info: "2 Units - Within 24hrs", status: "pending" },
-    { id: 3, group: "B-", hosp: "Mercy Clinic", info: "1 Unit - Routine", status: "matched" },
+    {
+      id: 1,
+      group: "O-",
+      hosp: "City General Hospital",
+      info: "4 Units - Required ASAP",
+      status: "critical",
+      responseSummary: {
+        total: 12,
+        pending: 6,
+        accepted: 4,
+        declined: 2,
+      },
+      fulfillmentPercent: 33.3,
+    },
+    {
+      id: 2,
+      group: "A+",
+      hosp: "St. Mary Medical",
+      info: "2 Units - Within 24hrs",
+      status: "pending",
+      responseSummary: {
+        total: 4,
+        pending: 2,
+        accepted: 1,
+        declined: 1,
+      },
+      fulfillmentPercent: 50,
+    },
+    {
+      id: 3,
+      group: "B-",
+      hosp: "Mercy Clinic",
+      info: "1 Unit - Routine",
+      status: "matched",
+      responseSummary: {
+        total: 3,
+        pending: 1,
+        accepted: 2,
+        declined: 0,
+      },
+      fulfillmentPercent: 100,
+    },
   ],
   matchedDonors: [
     { id: 1, name: "John Doe", initials: "JD", distance: "2.3", group: "O-" },
@@ -40,8 +79,14 @@ function mapActiveRequests(requests = []) {
 
   return requests.map((request) => {
     const summary = request.response_summary || {};
+    const total = Number(summary.total_count || 0);
     const accepted = Number(summary.accepted_count || 0);
     const pending = Number(summary.pending_count || 0);
+    const declined = Number(summary.declined_count || 0);
+    const unitsRequired = Number(request.units_required || 0);
+    const fulfillmentPercent = unitsRequired > 0
+      ? Math.min(100, Number(((accepted / unitsRequired) * 100).toFixed(1)))
+      : 0;
 
     return {
       id: request.id,
@@ -49,6 +94,13 @@ function mapActiveRequests(requests = []) {
       hosp: `Request #${request.id}`,
       info: `${request.units_required} Units - ${accepted} accepted - ${pending} pending`,
       status: toUiRequestStatus(request.status),
+      responseSummary: {
+        total,
+        pending,
+        accepted,
+        declined,
+      },
+      fulfillmentPercent,
     };
   });
 }

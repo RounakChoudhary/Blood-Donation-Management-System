@@ -82,9 +82,24 @@ export default function HospitalDashboard() {
                     <div className={`w-12 h-12 rounded-lg flex items-center justify-center font-bold text-xl ${req.status === 'critical' ? 'bg-error-container text-on-error-container' : req.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
                       {req.group}
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <h4 className="font-bold text-sm">{req.hosp}</h4>
                       <p className="text-xs text-slate-500 font-medium">{req.info}</p>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Responses: {req.responseSummary?.accepted ?? 0} accepted, {req.responseSummary?.declined ?? 0} declined, {req.responseSummary?.pending ?? 0} pending
+                      </p>
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                          <span>Fulfillment</span>
+                          <span>{req.fulfillmentPercent ?? 0}%</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-primary rounded-full transition-all duration-500"
+                            style={{ width: `${Math.max(0, Math.min(100, req.fulfillmentPercent ?? 0))}%` }}
+                          ></div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <Badge variant={req.status}>{req.status}</Badge>
