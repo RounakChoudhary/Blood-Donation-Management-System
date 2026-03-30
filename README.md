@@ -264,67 +264,68 @@ Routes are mounted directly from `index.js`. Protected routes require `Authoriza
 
 ---
 
-## 🚀 Sprint Progress
+## Sprint Progress
 
-> **Plan Period:** Feb 7 – Apr 30, 2026 &nbsp;|&nbsp; **Current:** Mar 18, 2026 — Sprint 3 Complete
+> **Plan Period:** February 5, 2026 - April 30, 2026  
+> **Plan Source:** `Sprint_Plan_V2 (1).pdf` (provided by team)  
+> **Progress Snapshot Updated:** March 31, 2026
+>
+> Checklist legend: `[x]` implemented in this repository, `[ ]` not fully implemented yet.
 
-### ✅ Sprint 1 — Core Backend Foundation
-*Feb 7 – Feb 14, 2026*
+### Sprint 1 - Project Setup, Registration Modules and Authentication
+*February 5, 2026 - February 16, 2026*
 
-- [x] Donor registration with email OTP verification (FR 4.1.1)
-- [x] Hospital registration with admin verification workflow (FR 4.1.3)
-- [x] JWT HS256 login + role-based RBAC middleware (FR 4.1.4)
-- [x] PostgreSQL 16 + PostGIS 3 schema with GIST spatial indexes
-- [x] Geospatial donor matching engine — `ST_DWithin` + `ST_Distance` + ABO/Rh compatibility (FR 4.2.2)
+- [x] Project setup and database design
+- [x] User authentication system (FR 4.1.4)
+- [x] Donor registration module (FR 4.1.1)
+- [x] Hospital registration module (FR 4.1.3)
+- [ ] Blood bank registration module (FR 4.1.2) - backend registration exists; full frontend/admin flow still pending
+- [ ] Password reset functionality (FR 4.1.5)
 
-### ✅ Sprint 2 — Auth Hardening & Requests
-*Feb 15 – Feb 26, 2026*
+### Sprint 2 - Emergency Request Workflow, Matching Engine and Notifications
+*February 23, 2026 - March 9, 2026*
 
-- [x] `requireRole.js` RBAC middleware enforcing role separation across all endpoints
-- [x] Emergency request creation and donor matching pipeline (FR 4.2.1, FR 4.2.2)
-- [x] Blood compatibility filtering via `utils/bloodCompat.js`
-- [x] 90-day donation cooldown data model and controller enforcement (FR 4.4.1)
-- [x] Hospital onboarding — register, pending list, verify, auth setup, hospital login (FR 4.1.3 extended)
-- [x] Verified-hospital middleware protecting emergency request endpoints (FR 4.5.1)
+- [x] Role-based auth hardening (FR 4.1.4 RBAC)
+- [ ] Donor eligibility and profile APIs (FR 4.4.1, FR 4.4.2) - eligibility/onboarding available, full profile update flow not complete
+- [x] Emergency request creation and hospital workflow (FR 4.2.1)
+- [x] Donor request response workflow (FR 4.2.4)
+- [x] Notification system via SMTP email (FR 4.2.3, FR 4.7.1)
+- [ ] Dynamic radius expansion (FR 4.2.5) - expansion batch logic exists, scheduler/job wiring pending
+- [ ] Blood bank emergency notification (FR 4.2.6)
 
-### ✅ Sprint 3 — Email Service & Donor Flow
-*Feb 27 – Mar 14, 2026*
+### Sprint 3 - Blood Donation Camp, Location Services and Hospital Onboarding
+*March 9, 2026 - March 22, 2026*
 
-- [x] Nodemailer/SMTP email notification service with HTML donor alert emails (FR 4.7.1)
-- [x] Tokenised deep-link generation (2-hour expiry) for donor accept/decline (FR 4.2.3)
-- [x] Retry logic — 3 attempts, exponential back-off (5 s → 25 s → 125 s)
-- [x] All delivery events recorded in `email_log` table via migration
-- [x] Donor accept/decline response flow — token auth, response recorded, hospital notified on acceptance (FR 4.2.4)
-- [x] OTP-gated donor account activation before login
-- [x] Runtime notification pipeline is email-only
+- [x] Hospital onboarding routes and controllers (FR 4.1.3)
+- [x] Blood bank service and authorization backend (FR 4.1.2 backend)
+- [x] Camp proposal submission (FR 4.3.1)
+- [x] Camp approval workflow (FR 4.3.2)
+- [x] Camp discovery by donors (FR 4.3.3)
+- [ ] Location services integration (FR 4.6.1, FR 4.6.2) - donor proximity exists; dedicated nearby blood bank API pending
+- [ ] Dynamic radius expansion carry-over (FR 4.2.5)
+- [ ] Blood bank emergency notification carry-over (FR 4.2.6)
+- [ ] Password reset carry-over (FR 4.1.5)
 
-### 🔲 Sprint 4 — Frontend Dashboards
-*Mar 15 – Mar 31, 2026*
+### Sprint 4 - Frontend Dashboards, Admin Panel and Blood Request Processing
+*March 23, 2026 - April 6, 2026*
 
-- [ ] Complete donor dashboard (eligibility, history, accept/decline actions)
-- [ ] Complete hospital dashboard (request creation, status view, donor responses)
-- [ ] Request status view (FR 4.5.2)
-- [ ] Donor profile management — update fields, view history (FR 4.4.2, FR 4.4.3)
-- [ ] Blood bank registration flow (FR 4.1.2)
+- [ ] Donor and hospital dashboards (FR 3.1, FR 4.4.2) - UI exists, but donor dashboard and parts of hospital flow still mocked
+- [ ] Request status view (FR 4.5.1, FR 4.5.2) - hospital request status summary is implemented; full regular-request + complete UI flow pending
+- [ ] Donation history and profile management (FR 4.4.2, FR 4.4.3)
+- [ ] Admin dashboard (FR 4.9.1-4.9.4) - backend admin APIs exist; frontend integration is partial
+- [x] Hospital and blood bank verification backend (FR 4.9.1, FR 4.9.2)
+- [x] User management backend (FR 4.9.3)
+- [ ] System configuration backend (FR 4.9.4)
 
-### 🔲 Sprint 5 — Camp Management & Admin
-*Apr 1 – Apr 15, 2026*
+### Sprint 5 - Reports, Polish, Testing and Security Compliance
+*April 7, 2026 - April 30, 2026*
 
-- [ ] Camp proposal submission, admin approval/rejection, organiser notification (FR 4.3.1, FR 4.3.2)
-- [ ] Camp discovery by donors — proximity + date range search (FR 4.3.3)
-- [ ] Admin console — verify hospitals/blood banks, manage users, system config (FR 4.9.1–4.9.4)
-- [ ] Wire dynamic radius expansion service into a scheduler/job runner (FR 4.2.5)
-- [ ] Nearby blood bank notification on emergency request (FR 4.2.6)
-- [ ] Password reset via email with single-use 30-minute token (FR 4.1.5)
-
-### 🔲 Sprint 6 — Reports & Polish
-*Apr 16 – Apr 30, 2026*
-
-- [ ] Donation summary report across date range (FR 4.8.1)
-- [ ] Emergency response performance report — avg response time, fulfilment count (FR 4.8.2)
-- [ ] Audit logging
-- [ ] System-wide testing and bug fixes
+- [ ] Report generation module (FR 4.8.1, FR 4.8.2)
+- [ ] Password reset (FR 4.1.5)
 - [ ] Mark notification as read (FR 4.7.2)
+- [ ] Audit logging (NFR 5.3)
+- [ ] System-wide testing and bug fixing (NFR 5.1)
+- [ ] Security and compliance review (NFR 5.3)
 
 ---
 
