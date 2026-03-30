@@ -83,9 +83,43 @@ async function getMatchResponseContext(match_id) {
   return rows[0] || null;
 }
 
+async function getResponseSummaryByRequestIds(requestIds = []) {
+  if (!Array.isArray(requestIds) || requestIds.length === 0) {
+    return [];
+  }
+
+  const normalizedIds = requestIds
+    .map((id) => Number(id))
+    .filter((id) => Number.isInteger(id) && id > 0);
+
+  if (normalizedIds.length === 0) {
+    return [];
+  }
+
+  const { rows } = await pool.query(
+    `
+      SELECT
+        request_id,
+        COUNT(*)::INT AS total_count,
+        COUNT(*) FILTER (WHERE status = 'pending')::INT AS pending_count,
+        COUNT(*) FILTER (WHERE status = 'notified')::INT AS notified_count,
+        COUNT(*) FILTER (WHERE status = 'accepted')::INT AS accepted_count,
+        COUNT(*) FILTER (WHERE status = 'declined')::INT AS declined_count,
+        COUNT(*) FILTER (WHERE status = 'no_response')::INT AS no_response_count
+      FROM blood_request_matches
+      WHERE request_id = ANY($1::INT[])
+      GROUP BY request_id
+    `,
+    [normalizedIds]
+  );
+
+  return rows;
+}
+
 module.exports = {
   getPendingMatchesForDonor,
   getMatchById,
   updateMatchStatus,
   getMatchResponseContext,
+  getResponseSummaryByRequestIds,
 };

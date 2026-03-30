@@ -1,4 +1,5 @@
 const BloodRequest = require("../models/bloodRequest.model");
+const BloodRequestMatch = require("../models/bloodRequestMatch.model");
 const { sendEmailForMatches } = require("./notification.service");
 
 const RADIUS_STEP_METERS = [3000, 6000, 9000];
@@ -20,6 +21,32 @@ function getNextExpansionRadius(currentRadiusMeters) {
     if (current < step) return step;
   }
   return null;
+}
+
+function buildEmptyResponseSummary() {
+  return {
+    total_count: 0,
+    pending_count: 0,
+    notified_count: 0,
+    accepted_count: 0,
+    declined_count: 0,
+    no_response_count: 0,
+  };
+}
+
+async function attachResponseSummaries(requests = []) {
+  if (!Array.isArray(requests) || requests.length === 0) {
+    return [];
+  }
+
+  const ids = requests.map((request) => Number(request.id)).filter((id) => Number.isInteger(id));
+  const summaries = await BloodRequestMatch.getResponseSummaryByRequestIds(ids);
+  const summaryMap = new Map(summaries.map((item) => [Number(item.request_id), item]));
+
+  return requests.map((request) => ({
+    ...request,
+    response_summary: summaryMap.get(Number(request.id)) || buildEmptyResponseSummary(),
+  }));
 }
 
 async function createEmergencyRequest({
@@ -98,10 +125,12 @@ async function getRequestForHospital({ request_id, hospital_id }) {
     return { ok: false, status: 403, error: "Forbidden" };
   }
 
+  const [requestWithSummary] = await attachResponseSummaries([request]);
+
   return {
     ok: true,
     status: 200,
-    request,
+    request: requestWithSummary || request,
   };
 }
 
@@ -140,11 +169,12 @@ async function listHospitalRequests({ hospital_id, limit = 50, offset = 0 }) {
     Number(limit),
     Number(offset)
   );
+  const requestsWithSummary = await attachResponseSummaries(requests);
 
   return {
     ok: true,
     status: 200,
-    requests,
+    requests: requestsWithSummary,
   };
 }
 
