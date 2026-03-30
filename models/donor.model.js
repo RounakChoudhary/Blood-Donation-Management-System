@@ -144,6 +144,11 @@ async function markDonated({ donor_id, donation_date = null, cooldown_days = 120
   return rows[0] || null;
 }
 
+async function countDonors() {
+  const { rows } = await pool.query("SELECT COUNT(*) AS count FROM donors");
+  return parseInt(rows[0].count, 10);
+}
+
 module.exports = {
   createDonor,
   getDonorById,
@@ -151,4 +156,5 @@ module.exports = {
   updateAvailabilityByUserId,
   updateAvailabilityByDonorId,
   markDonated,
+  countDonors,
 };

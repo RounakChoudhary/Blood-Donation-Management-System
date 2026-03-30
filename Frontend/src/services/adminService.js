@@ -52,7 +52,7 @@ function toDashboardData(stats = {}) {
   return {
     ...FALLBACK_ADMIN_DASHBOARD,
     metrics: {
-      totalDonors: Number(stats.users || 0).toLocaleString(),
+      totalDonors: Number(stats.donors ?? stats.users ?? 0).toLocaleString(),
       requestsToday: Number(stats.requestsToday ?? stats.bloodRequests ?? 0),
       fulfillmentRate: hasFulfillmentRate
         ? `${parsedFulfillmentRate.toFixed(1)}%`

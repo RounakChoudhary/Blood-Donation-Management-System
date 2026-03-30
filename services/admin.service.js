@@ -1,4 +1,5 @@
 const userModel = require("../models/user.model");
+const donorModel = require("../models/donor.model");
 const hospitalModel = require("../models/hospital.model");
 const bloodBankModel = require("../models/bloodBank.model");
 const bloodRequestModel = require("../models/bloodRequest.model");
@@ -40,6 +41,7 @@ async function updateBloodBankStatus(bloodBankId, status) {
 async function getAdminStats() {
   const [
     totalUsers,
+    totalDonors,
     totalHospitals,
     totalBloodBanks,
     totalBloodRequests,
@@ -47,6 +49,7 @@ async function getAdminStats() {
     fulfilledBloodRequests,
   ] = await Promise.all([
     userModel.countUsers(),
+    donorModel.countDonors(),
     hospitalModel.countHospitals(),
     bloodBankModel.countBloodBanks(),
     bloodRequestModel.countBloodRequests(),
@@ -60,6 +63,7 @@ async function getAdminStats() {
 
   return {
     users: totalUsers,
+    donors: totalDonors,
     hospitals: totalHospitals,
     bloodBanks: totalBloodBanks,
     bloodRequests: totalBloodRequests,
