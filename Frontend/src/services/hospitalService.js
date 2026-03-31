@@ -141,6 +141,40 @@ export const getHospitalDashboard = async () => {
 };
 
 export const createEmergencyRequest = async (payload) => {
-  await new Promise((resolve) => setTimeout(resolve, 600));
-  return { success: true, message: "Request broadcasted successfully", data: payload };
+  const token = getStoredToken();
+
+  if (!token) {
+    throw new Error("Hospital auth token not found. Please login again.");
+  }
+
+  const requestBody = {
+    blood_group: payload?.blood_group,
+    units_required: Number(payload?.units_required),
+    lon: Number(payload?.lon),
+    lat: Number(payload?.lat),
+    search_radius_meters: Number(payload?.search_radius_meters ?? 5000),
+    match_limit: Number(payload?.match_limit ?? 25),
+  };
+
+  const response = await fetch(`${API_BASE_URL}/blood-requests`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  let payloadData = null;
+  try {
+    payloadData = await response.json();
+  } catch {
+    payloadData = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(payloadData?.error || `Failed to create request (${response.status})`);
+  }
+
+  return payloadData;
 };

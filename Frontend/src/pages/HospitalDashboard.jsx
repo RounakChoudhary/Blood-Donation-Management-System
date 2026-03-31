@@ -4,9 +4,10 @@ import Badge from '../components/Badge';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import Input from '../components/Input';
-import Select from '../components/Select';
 import { AlertTriangle, MapPin } from 'lucide-react';
 import { getHospitalDashboard, createEmergencyRequest } from '../services/hospitalService';
+
+const BLOOD_GROUP_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
 export default function HospitalDashboard() {
   const [data, setData] = useState(null);
@@ -14,28 +15,51 @@ export default function HospitalDashboard() {
   const [error, setError] = useState(null);
   const [isModalOpen, setModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+  const [submitSuccess, setSubmitSuccess] = useState(null);
+  const [requestForm, setRequestForm] = useState({
+    blood_group: 'O-',
+    units_required: '1',
+    lon: '',
+    lat: '',
+    search_radius_meters: '5000',
+  });
+
+  const loadDashboard = async ({ showLoading = true } = {}) => {
+    if (showLoading) {
+      setLoading(true);
+    }
+
+    try {
+      const res = await getHospitalDashboard();
+      setData(res);
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load hospital data.");
+    } finally {
+      if (showLoading) {
+        setLoading(false);
+      }
+    }
+  };
 
   useEffect(() => {
-    getHospitalDashboard()
-      .then(res => {
-        setData(res);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setError("Failed to load hospital data.");
-        setLoading(false);
-      });
+    loadDashboard();
   }, []);
 
   const handleRequestSubmission = async () => {
     setIsSubmitting(true);
+    setSubmitError(null);
+    setSubmitSuccess(null);
     try {
-      await createEmergencyRequest({ group: 'O-', urgency: 'Critical' });
+      const response = await createEmergencyRequest(requestForm);
+      setSubmitSuccess(response?.message || "Emergency request submitted successfully.");
       setModalOpen(false);
-      // Re-fetch data or update locally if real backend
+      await loadDashboard({ showLoading: false });
     } catch (err) {
       console.error(err);
+      setSubmitError(err.message || "Failed to submit emergency request.");
     } finally {
       setIsSubmitting(false);
     }
@@ -69,6 +93,11 @@ export default function HospitalDashboard() {
           Create Emergency Request
         </Button>
       </div>
+      {submitSuccess && (
+        <div className="p-3 rounded-lg bg-green-50 text-green-700 text-sm font-medium">
+          {submitSuccess}
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-2 gap-8">
         {/* Active Requests */}
@@ -82,15 +111,15 @@ export default function HospitalDashboard() {
                     <div className={`w-12 h-12 rounded-lg flex items-center justify-center font-bold text-xl ${req.status === 'critical' ? 'bg-error-container text-on-error-container' : req.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
                       {req.group}
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <h4 className="font-bold text-sm">{req.hosp}</h4>
                       <p className="text-xs text-slate-500 font-medium">{req.info}</p>
                       <p className="text-[11px] text-slate-500 mt-1">
                         Responses: {req.responseSummary?.accepted ?? 0} accepted, {req.responseSummary?.declined ?? 0} declined, {req.responseSummary?.pending ?? 0} pending
                       </p>
-                      <div className="mt-2">
+                      <div className="mt-2 w-full">
                         <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                          <span>Fulfillment</span>
+                          <span>Fulfillment Progress</span>
                           <span>{req.fulfillmentPercent ?? 0}%</span>
                         </div>
                         <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -145,18 +174,60 @@ export default function HospitalDashboard() {
           <div>
             <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2 block">Blood Group Needed</label>
             <div className="grid grid-cols-4 gap-2">
-              {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map((type) => (
-                <button key={type} className={`py-3 rounded-lg text-sm font-bold transition-colors ${type === 'O-' ? 'border-2 border-primary bg-primary/5 text-primary' : 'border border-surface-container-highest hover:bg-surface-container'}`}>
+              {BLOOD_GROUP_OPTIONS.map((type) => (
+                <button
+                  type="button"
+                  key={type}
+                  onClick={() => setRequestForm((prev) => ({ ...prev, blood_group: type }))}
+                  className={`py-3 rounded-lg text-sm font-bold transition-colors ${type === requestForm.blood_group ? 'border-2 border-primary bg-primary/5 text-primary' : 'border border-surface-container-highest hover:bg-surface-container'}`}
+                >
                   {type}
                 </button>
               ))}
             </div>
           </div>
-          <Input icon={<MapPin size={18} />} placeholder="Hospital or Collection Point" />
           <div className="grid grid-cols-2 gap-4">
-            <Select label="Urgency" options={['Critical', 'High', 'Medium']} />
-            <Input label="Units (ml)" type="number" placeholder="e.g. 450" />
+            <Input
+              label="Units Required"
+              type="number"
+              min="1"
+              value={requestForm.units_required}
+              onChange={(e) => setRequestForm((prev) => ({ ...prev, units_required: e.target.value }))}
+              placeholder="e.g. 2"
+            />
+            <Input
+              label="Search Radius (m)"
+              type="number"
+              min="1000"
+              step="1000"
+              value={requestForm.search_radius_meters}
+              onChange={(e) => setRequestForm((prev) => ({ ...prev, search_radius_meters: e.target.value }))}
+              placeholder="e.g. 5000"
+            />
+            <Input
+              label="Longitude"
+              type="number"
+              step="any"
+              icon={<MapPin size={18} />}
+              value={requestForm.lon}
+              onChange={(e) => setRequestForm((prev) => ({ ...prev, lon: e.target.value }))}
+              placeholder="e.g. 72.8777"
+            />
+            <Input
+              label="Latitude"
+              type="number"
+              step="any"
+              icon={<MapPin size={18} />}
+              value={requestForm.lat}
+              onChange={(e) => setRequestForm((prev) => ({ ...prev, lat: e.target.value }))}
+              placeholder="e.g. 19.0760"
+            />
           </div>
+          {submitError && (
+            <div className="p-3 rounded-lg bg-error-container text-on-error-container text-sm font-medium">
+              {submitError}
+            </div>
+          )}
           <Button className="w-full mt-4" disabled={isSubmitting} onClick={handleRequestSubmission}>
             {isSubmitting ? "Submitting..." : "Submit Request"}
           </Button>
