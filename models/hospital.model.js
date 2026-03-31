@@ -109,8 +109,11 @@ async function updateHospitalStatus(hospitalId, status) {
     `
       UPDATE hospitals
       SET 
-        onboarding_status = $2, 
-        verified_at = CASE WHEN $2 = 'verified' THEN NOW() ELSE verified_at END
+        onboarding_status = $2::VARCHAR(20),
+        verified_at = CASE
+          WHEN $2::VARCHAR(20) = 'verified'::VARCHAR(20) THEN NOW()
+          ELSE verified_at
+        END
       WHERE id = $1
         AND is_deleted = false
       RETURNING id, name, onboarding_status, verified_at

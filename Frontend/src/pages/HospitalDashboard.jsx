@@ -5,7 +5,7 @@ import Button from '../components/Button';
 import Modal from '../components/Modal';
 import Input from '../components/Input';
 import { AlertTriangle, MapPin } from 'lucide-react';
-import { getHospitalDashboard, getHospitalRequestDetails, createEmergencyRequest } from '../services/hospitalService';
+import { getHospitalDashboard, getHospitalRequestDetails, createEmergencyRequest, rematchHospitalRequest } from '../services/hospitalService';
 
 const BLOOD_GROUP_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
@@ -21,6 +21,9 @@ export default function HospitalDashboard() {
   const [matchedDonors, setMatchedDonors] = useState([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
   const [matchesError, setMatchesError] = useState(null);
+  const [isRematching, setIsRematching] = useState(false);
+  const [rematchMessage, setRematchMessage] = useState(null);
+  const [rematchError, setRematchError] = useState(null);
   const [requestForm, setRequestForm] = useState({
     blood_group: 'O-',
     units_required: '1',
@@ -116,6 +119,11 @@ export default function HospitalDashboard() {
     };
   }, [data, selectedRequestId]);
 
+  useEffect(() => {
+    setRematchMessage(null);
+    setRematchError(null);
+  }, [selectedRequestId]);
+
   const handleRequestSubmission = async () => {
     setIsSubmitting(true);
     setSubmitError(null);
@@ -131,6 +139,40 @@ export default function HospitalDashboard() {
       setSubmitError(err.message || "Failed to submit emergency request.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleRematch = async () => {
+    if (!selectedRequestId || !data || data.usingFallback) {
+      return;
+    }
+
+    setIsRematching(true);
+    setRematchMessage(null);
+    setRematchError(null);
+
+    try {
+      const selectedRequest = data.activeRequests.find((request) => request.id === selectedRequestId);
+      const radiusMeters = Number(selectedRequest?.searchRadiusMeters || 5000);
+
+      const response = await rematchHospitalRequest(selectedRequestId, {
+        radius_meters: radiusMeters,
+        limit: 25,
+      });
+
+      const newMatchesCount = Number(response?.new_matches_count || 0);
+      setRematchMessage(
+        newMatchesCount > 0
+          ? `Found ${newMatchesCount} new donor match${newMatchesCount > 1 ? 'es' : ''}.`
+          : "No new donors found in the current search radius."
+      );
+
+      await loadDashboard({ showLoading: false });
+    } catch (err) {
+      console.error(err);
+      setRematchError(err.message || "Failed to find more donors.");
+    } finally {
+      setIsRematching(false);
     }
   };
 
@@ -215,10 +257,30 @@ export default function HospitalDashboard() {
 
         {/* Nearby Matches */}
         <div className="space-y-4">
-          <h2 className="text-xl font-bold tracking-tight">
-            Matched Donors (Nearby)
-            {selectedRequestId ? ` - Request #${selectedRequestId}` : ''}
-          </h2>
+          <div className="flex items-start sm:items-center justify-between gap-3">
+            <h2 className="text-xl font-bold tracking-tight">
+              Matched Donors (Nearby)
+              {selectedRequestId ? ` - Request #${selectedRequestId}` : ''}
+            </h2>
+            <Button
+              variant="secondary"
+              className="text-xs px-3 py-2 h-auto whitespace-nowrap"
+              onClick={handleRematch}
+              disabled={isRematching || loadingMatches || !selectedRequestId || data?.usingFallback}
+            >
+              {isRematching ? "Finding..." : "Find More Donors"}
+            </Button>
+          </div>
+          {rematchMessage && (
+            <p className="text-xs font-semibold text-green-700 bg-green-50 rounded-lg px-3 py-2">
+              {rematchMessage}
+            </p>
+          )}
+          {rematchError && (
+            <p className="text-xs font-semibold text-on-error-container bg-error-container rounded-lg px-3 py-2">
+              {rematchError}
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-4">
             {loadingMatches ? (
               <p className="text-slate-500 text-sm p-4 col-span-2 text-center">Loading matched donors...</p>

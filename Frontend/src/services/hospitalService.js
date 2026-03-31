@@ -114,6 +114,7 @@ function mapActiveRequests(requests = []) {
       hosp: `Request #${request.id}`,
       info: `${request.units_required} Units - ${accepted} accepted - ${pending} pending`,
       status: toUiRequestStatus(request.status),
+      searchRadiusMeters: Number(request.search_radius_meters || 5000),
       responseSummary: {
         total,
         pending,
@@ -260,6 +261,46 @@ export const createEmergencyRequest = async (payload) => {
 
   if (!response.ok) {
     throw new Error(payloadData?.error || `Failed to create request (${response.status})`);
+  }
+
+  return payloadData;
+};
+
+export const rematchHospitalRequest = async (requestId, payload = {}) => {
+  const token = getStoredToken();
+
+  if (!token) {
+    throw new Error("Hospital auth token not found. Please login again.");
+  }
+
+  const normalizedId = Number(requestId);
+  if (!Number.isInteger(normalizedId) || normalizedId <= 0) {
+    throw new Error("Invalid request id for rematch.");
+  }
+
+  const requestBody = {
+    radius_meters: Number(payload?.radius_meters ?? 5000),
+    limit: Number(payload?.limit ?? 25),
+  };
+
+  const response = await fetch(`${API_BASE_URL}/blood-requests/${normalizedId}/match`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  let payloadData = null;
+  try {
+    payloadData = await response.json();
+  } catch {
+    payloadData = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(payloadData?.error || `Failed to rematch request (${response.status})`);
   }
 
   return payloadData;
