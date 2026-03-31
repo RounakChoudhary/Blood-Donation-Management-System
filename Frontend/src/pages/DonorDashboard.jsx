@@ -1,26 +1,64 @@
 import React, { useState, useEffect } from 'react';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
+import Button from '../components/Button';
 import { HeartHandshake } from 'lucide-react';
-import { getDonorDashboard } from '../services/donorService';
+import { getDonorDashboard, getDonorRequests, respondToDonorRequest } from '../services/donorService';
 
 export default function DonorDashboard() {
   const [data, setData] = useState(null);
+  const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeMatchActionId, setActiveMatchActionId] = useState(null);
+  const [actionMessage, setActionMessage] = useState(null);
+  const [actionError, setActionError] = useState(null);
 
   useEffect(() => {
-    getDonorDashboard()
-      .then(res => {
-        setData(res);
-        setLoading(false);
-      })
-      .catch(err => {
+    const loadDonorDashboard = async () => {
+      try {
+        const [dashboard, requests] = await Promise.all([
+          getDonorDashboard(),
+          getDonorRequests(),
+        ]);
+        setData(dashboard);
+        setPendingRequests(requests);
+        setError(null);
+      } catch (err) {
         console.error(err);
         setError("Failed to load dashboard data.");
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    loadDonorDashboard();
   }, []);
+
+  const handleMatchAction = async (matchId, action) => {
+    setActiveMatchActionId(matchId);
+    setActionMessage(null);
+    setActionError(null);
+
+    try {
+      await respondToDonorRequest(matchId, action);
+
+      setPendingRequests((previousRequests) =>
+        previousRequests.filter((request) => request.matchId !== matchId)
+      );
+      setActionMessage(action === 'accept'
+        ? "Request accepted successfully."
+        : "Request declined successfully.");
+
+      const refreshedDashboard = await getDonorDashboard();
+      setData(refreshedDashboard);
+    } catch (err) {
+      console.error(err);
+      setActionError(err.message || "Failed to update request status.");
+    } finally {
+      setActiveMatchActionId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -81,6 +119,64 @@ export default function DonorDashboard() {
           <p className="text-4xl font-black text-primary">{data?.totalDonations}</p>
           <p className="text-xs text-slate-500 font-medium">Lives impacted: ~{data?.livesImpacted}</p>
         </Card>
+      </div>
+
+      <div className="space-y-4">
+        <h2 className="text-xl font-bold tracking-tight">Pending Requests</h2>
+
+        {actionMessage && (
+          <div className="p-3 rounded-lg bg-green-50 text-green-700 text-sm font-semibold">
+            {actionMessage}
+          </div>
+        )}
+
+        {actionError && (
+          <div className="p-3 rounded-lg bg-error-container text-on-error-container text-sm font-semibold">
+            {actionError}
+          </div>
+        )}
+
+        <div className="grid md:grid-cols-2 gap-4">
+          {pendingRequests.length > 0 ? (
+            pendingRequests.map((request) => (
+              <Card key={request.matchId} className="space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-bold text-base">Request #{request.requestId}</h3>
+                    <p className="text-xs text-slate-500 font-medium mt-1">{request.createdAt}</p>
+                  </div>
+                  <Badge variant="pending">Pending</Badge>
+                </div>
+
+                <div className="space-y-2 text-sm text-slate-600">
+                  <p><span className="font-semibold text-on-surface">Blood Group:</span> {request.bloodGroup}</p>
+                  <p><span className="font-semibold text-on-surface">Units Required:</span> {request.unitsRequired}</p>
+                  <p><span className="font-semibold text-on-surface">Distance:</span> {request.distanceKm} km</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    onClick={() => handleMatchAction(request.matchId, 'accept')}
+                    disabled={activeMatchActionId === request.matchId}
+                  >
+                    {activeMatchActionId === request.matchId ? "Processing..." : "Accept"}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => handleMatchAction(request.matchId, 'reject')}
+                    disabled={activeMatchActionId === request.matchId}
+                  >
+                    {activeMatchActionId === request.matchId ? "Processing..." : "Decline"}
+                  </Button>
+                </div>
+              </Card>
+            ))
+          ) : (
+            <Card className="md:col-span-2">
+              <p className="text-sm text-slate-500 text-center">No pending requests.</p>
+            </Card>
+          )}
+        </div>
       </div>
 
       <div className="space-y-4">
