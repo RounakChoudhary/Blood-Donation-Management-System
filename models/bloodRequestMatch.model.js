@@ -116,10 +116,43 @@ async function getResponseSummaryByRequestIds(requestIds = []) {
   return rows;
 }
 
+async function getMatchesByRequestId(requestId) {
+  const normalizedId = Number(requestId);
+  if (!Number.isInteger(normalizedId) || normalizedId <= 0) {
+    return [];
+  }
+
+  const { rows } = await pool.query(
+    `
+      SELECT
+        m.id AS match_id,
+        m.request_id,
+        m.donor_id,
+        m.distance_meters,
+        m.status,
+        m.created_at,
+        d.blood_group AS donor_blood_group,
+        d.availability_status AS donor_availability_status,
+        u.full_name AS donor_name
+      FROM blood_request_matches m
+      JOIN donors d
+        ON d.id = m.donor_id
+      JOIN users u
+        ON u.id = d.user_id
+      WHERE m.request_id = $1
+      ORDER BY m.created_at DESC
+    `,
+    [normalizedId]
+  );
+
+  return rows;
+}
+
 module.exports = {
   getPendingMatchesForDonor,
   getMatchById,
   updateMatchStatus,
   getMatchResponseContext,
   getResponseSummaryByRequestIds,
+  getMatchesByRequestId,
 };

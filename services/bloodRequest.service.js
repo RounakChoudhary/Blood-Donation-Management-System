@@ -126,11 +126,15 @@ async function getRequestForHospital({ request_id, hospital_id }) {
   }
 
   const [requestWithSummary] = await attachResponseSummaries([request]);
+  const matches = await BloodRequestMatch.getMatchesByRequestId(request.id);
 
   return {
     ok: true,
     status: 200,
-    request: requestWithSummary || request,
+    request: {
+      ...(requestWithSummary || request),
+      matches,
+    },
   };
 }
 

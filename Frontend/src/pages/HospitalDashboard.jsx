@@ -5,7 +5,7 @@ import Button from '../components/Button';
 import Modal from '../components/Modal';
 import Input from '../components/Input';
 import { AlertTriangle, MapPin } from 'lucide-react';
-import { getHospitalDashboard, createEmergencyRequest } from '../services/hospitalService';
+import { getHospitalDashboard, getHospitalRequestDetails, createEmergencyRequest } from '../services/hospitalService';
 
 const BLOOD_GROUP_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
@@ -17,6 +17,10 @@ export default function HospitalDashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [submitSuccess, setSubmitSuccess] = useState(null);
+  const [selectedRequestId, setSelectedRequestId] = useState(null);
+  const [matchedDonors, setMatchedDonors] = useState([]);
+  const [loadingMatches, setLoadingMatches] = useState(false);
+  const [matchesError, setMatchesError] = useState(null);
   const [requestForm, setRequestForm] = useState({
     blood_group: 'O-',
     units_required: '1',
@@ -48,6 +52,70 @@ export default function HospitalDashboard() {
     loadDashboard();
   }, []);
 
+  useEffect(() => {
+    const requestIds = data?.activeRequests?.map((request) => request.id) || [];
+
+    if (requestIds.length === 0) {
+      setSelectedRequestId(null);
+      return;
+    }
+
+    setSelectedRequestId((previousId) => {
+      if (previousId && requestIds.includes(previousId)) {
+        return previousId;
+      }
+      return requestIds[0];
+    });
+  }, [data]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const loadMatchedDonors = async () => {
+      if (!data) return;
+
+      if (data.usingFallback) {
+        setMatchedDonors(data.matchedDonors || []);
+        setMatchesError(null);
+        setLoadingMatches(false);
+        return;
+      }
+
+      if (!selectedRequestId) {
+        setMatchedDonors([]);
+        setMatchesError(null);
+        setLoadingMatches(false);
+        return;
+      }
+
+      setLoadingMatches(true);
+      setMatchesError(null);
+
+      try {
+        const details = await getHospitalRequestDetails(selectedRequestId);
+        if (!isCancelled) {
+          setMatchedDonors(details.matchedDonors || []);
+        }
+      } catch (err) {
+        console.error(err);
+        if (!isCancelled) {
+          setMatchesError("Failed to load matched donors for the selected request.");
+          setMatchedDonors([]);
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoadingMatches(false);
+        }
+      }
+    };
+
+    loadMatchedDonors();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [data, selectedRequestId]);
+
   const handleRequestSubmission = async () => {
     setIsSubmitting(true);
     setSubmitError(null);
@@ -56,6 +124,7 @@ export default function HospitalDashboard() {
       const response = await createEmergencyRequest(requestForm);
       setSubmitSuccess(response?.message || "Emergency request submitted successfully.");
       setModalOpen(false);
+      setSelectedRequestId(null);
       await loadDashboard({ showLoading: false });
     } catch (err) {
       console.error(err);
@@ -106,7 +175,11 @@ export default function HospitalDashboard() {
           <div className="space-y-3">
             {data?.activeRequests.length > 0 ? (
               data.activeRequests.map((req) => (
-                <Card key={req.id} className={`p-5 flex justify-between items-start border-l-4 ${req.status === 'critical' ? 'border-red-600' : req.status === 'pending' ? 'border-amber-400' : 'border-blue-500'}`}>
+                <Card
+                  key={req.id}
+                  className={`p-5 flex justify-between items-start border-l-4 cursor-pointer transition-all ${selectedRequestId === req.id ? 'ring-2 ring-primary/20' : ''} ${req.status === 'critical' ? 'border-red-600' : req.status === 'pending' ? 'border-amber-400' : 'border-blue-500'}`}
+                  onClick={() => setSelectedRequestId(req.id)}
+                >
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-lg flex items-center justify-center font-bold text-xl ${req.status === 'critical' ? 'bg-error-container text-on-error-container' : req.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
                       {req.group}
@@ -142,24 +215,36 @@ export default function HospitalDashboard() {
 
         {/* Nearby Matches */}
         <div className="space-y-4">
-          <h2 className="text-xl font-bold tracking-tight">Matched Donors (Nearby)</h2>
+          <h2 className="text-xl font-bold tracking-tight">
+            Matched Donors (Nearby)
+            {selectedRequestId ? ` - Request #${selectedRequestId}` : ''}
+          </h2>
           <div className="grid grid-cols-2 gap-4">
-            {data?.matchedDonors.length > 0 ? (
-              data.matchedDonors.map((donor) => (
-                <Card key={donor.id} className="p-5 flex flex-col justify-between h-48">
+            {loadingMatches ? (
+              <p className="text-slate-500 text-sm p-4 col-span-2 text-center">Loading matched donors...</p>
+            ) : matchesError ? (
+              <p className="text-on-error-container bg-error-container text-sm p-4 col-span-2 text-center rounded-lg">{matchesError}</p>
+            ) : matchedDonors.length > 0 ? (
+              matchedDonors.map((donor) => (
+                <Card key={donor.id} className="p-5 flex flex-col justify-between min-h-48">
                   <div>
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-primary">
                         {donor.initials}
                       </div>
-                      <div>
-                        <p className="text-sm font-bold leading-tight">{donor.name}</p>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold leading-tight break-words">{donor.name}</p>
                         <p className="text-[10px] uppercase font-bold text-slate-400 mt-0.5">{donor.distance} km away</p>
                       </div>
                     </div>
                     <Badge variant="default" className="w-fit">{donor.group} Group</Badge>
                   </div>
-                  <Button variant="secondary" className="w-full text-xs py-2 h-auto mt-4">Notify Donor</Button>
+                  <div className="mt-3 space-y-2 shrink-0">
+                    <Badge variant={donor.status} className="w-fit">{donor.rawStatus}</Badge>
+                    <Button variant="secondary" className="w-full text-xs py-2 px-3 h-auto leading-tight" disabled>
+                      Status: {donor.rawStatus}
+                    </Button>
+                  </div>
                 </Card>
               ))
             ) : (

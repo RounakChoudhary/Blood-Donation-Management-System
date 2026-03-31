@@ -46,10 +46,10 @@ const FALLBACK_HOSPITAL_DASHBOARD = {
     },
   ],
   matchedDonors: [
-    { id: 1, name: "John Doe", initials: "JD", distance: "2.3", group: "O-" },
-    { id: 2, name: "Anna Smith", initials: "AS", distance: "0.8", group: "A+" },
-    { id: 3, name: "Robert C.", initials: "RC", distance: "4.1", group: "O-" },
-    { id: 4, name: "Elena V.", initials: "EV", distance: "5.5", group: "B-" },
+    { id: 1, name: "John Doe", initials: "JD", distance: "2.3", group: "O-", status: "pending", rawStatus: "pending" },
+    { id: 2, name: "Anna Smith", initials: "AS", distance: "0.8", group: "A+", status: "pending", rawStatus: "pending" },
+    { id: 3, name: "Robert C.", initials: "RC", distance: "4.1", group: "O-", status: "default", rawStatus: "declined" },
+    { id: 4, name: "Elena V.", initials: "EV", distance: "5.5", group: "B-", status: "success", rawStatus: "accepted" },
   ],
 };
 
@@ -72,6 +72,26 @@ function toUiRequestStatus(apiStatus) {
   if (normalized === "fulfilled") return "success";
   if (normalized === "cancelled") return "default";
   return "default";
+}
+
+function toUiMatchStatus(apiStatus) {
+  const normalized = String(apiStatus || "").toLowerCase();
+
+  if (normalized === "accepted") return "success";
+  if (normalized === "pending" || normalized === "notified") return "pending";
+  return "default";
+}
+
+function getInitials(name = "") {
+  const words = String(name)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (words.length === 0) return "NA";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+
+  return `${words[0][0]}${words[1][0]}`.toUpperCase();
 }
 
 function mapActiveRequests(requests = []) {
@@ -105,12 +125,35 @@ function mapActiveRequests(requests = []) {
   });
 }
 
+function mapMatchedDonors(matches = []) {
+  if (!Array.isArray(matches)) return [];
+
+  return matches.map((match) => {
+    const donorName = match.donor_name || `Donor #${match.donor_id}`;
+    const distanceKm = Number(match.distance_meters) / 1000;
+
+    return {
+      id: match.match_id,
+      donorId: match.donor_id,
+      name: donorName,
+      initials: getInitials(donorName),
+      distance: Number.isFinite(distanceKm) ? distanceKm.toFixed(1) : "0.0",
+      group: match.donor_blood_group || "N/A",
+      status: toUiMatchStatus(match.status),
+      rawStatus: match.status || "unknown",
+    };
+  });
+}
+
 export const getHospitalDashboard = async () => {
   const token = getStoredToken();
 
   if (!token) {
     await new Promise((resolve) => setTimeout(resolve, 600));
-    return FALLBACK_HOSPITAL_DASHBOARD;
+    return {
+      ...FALLBACK_HOSPITAL_DASHBOARD,
+      usingFallback: true,
+    };
   }
 
   try {
@@ -132,12 +175,55 @@ export const getHospitalDashboard = async () => {
       ...FALLBACK_HOSPITAL_DASHBOARD,
       activeRequests,
       matchedDonors: [],
+      usingFallback: false,
     };
   } catch (error) {
     console.warn("Falling back to mocked hospital dashboard data:", error);
     await new Promise((resolve) => setTimeout(resolve, 600));
-    return FALLBACK_HOSPITAL_DASHBOARD;
+    return {
+      ...FALLBACK_HOSPITAL_DASHBOARD,
+      usingFallback: true,
+    };
   }
+};
+
+export const getHospitalRequestDetails = async (requestId) => {
+  const token = getStoredToken();
+
+  if (!token) {
+    return {
+      matchedDonors: FALLBACK_HOSPITAL_DASHBOARD.matchedDonors,
+      usingFallback: true,
+    };
+  }
+
+  const normalizedId = Number(requestId);
+  if (!Number.isInteger(normalizedId) || normalizedId <= 0) {
+    return { matchedDonors: [] };
+  }
+
+  const response = await fetch(`${API_BASE_URL}/blood-requests/${normalizedId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  let payloadData = null;
+  try {
+    payloadData = await response.json();
+  } catch {
+    payloadData = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(payloadData?.error || `Failed to fetch request details (${response.status})`);
+  }
+
+  return {
+    matchedDonors: mapMatchedDonors(payloadData?.request?.matches || []),
+    usingFallback: false,
+  };
 };
 
 export const createEmergencyRequest = async (payload) => {

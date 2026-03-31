@@ -8,6 +8,31 @@ require("./models/db");
 
 app.use(express.json());
 
+// Minimal CORS support for local frontend development.
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ||
+  "http://localhost:5173,http://127.0.0.1:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
+
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,PUT,DELETE,OPTIONS");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  return next();
+});
+
 const authRoutes = require("./routes/auth.routes");
 const userRoutes = require("./routes/user.routes");
 const donorRoutes = require("./routes/donor.routes");
