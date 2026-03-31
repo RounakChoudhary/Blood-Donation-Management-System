@@ -301,12 +301,17 @@ export default function HospitalDashboard() {
                     </div>
                     <Badge variant="default" className="w-fit">{donor.group} Group</Badge>
                   </div>
-                  <div className="mt-3 space-y-2 shrink-0">
-                    <Badge variant={donor.status} className="w-fit">{donor.rawStatus}</Badge>
-                    <Button variant="secondary" className="w-full text-xs py-2 px-3 h-auto leading-tight" disabled>
-                      Status: {donor.rawStatus}
-                    </Button>
-                  </div>
+                    <div className="mt-3 space-y-2 shrink-0">
+                      <Badge variant={donor.status} className="w-fit">{donor.rawStatus}</Badge>
+                      {donor.phone && (
+                        <p className="text-[11px] font-semibold text-slate-600">
+                          Contact: {donor.phone}
+                        </p>
+                      )}
+                      <Button variant="secondary" className="w-full text-xs py-2 px-3 h-auto leading-tight" disabled>
+                        Status: {donor.rawStatus}
+                      </Button>
+                    </div>
                 </Card>
               ))
             ) : (

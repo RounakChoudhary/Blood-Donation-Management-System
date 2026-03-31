@@ -30,6 +30,7 @@ const FALLBACK_PENDING_REQUESTS = [
     requestId: 101,
     bloodGroup: "O-",
     unitsRequired: 1,
+    hospitalName: "City General Hospital",
     distanceKm: "2.3",
     createdAt: "Today",
   },
@@ -76,7 +77,10 @@ function mapPendingRequests(requests = []) {
     requestId: request.request_id,
     bloodGroup: request.blood_group,
     unitsRequired: Number(request.units_required || 0),
-    distanceKm: (Number(request.distance_meters || 0) / 1000).toFixed(1),
+    hospitalName: request.hospital_name || "Nearby Hospital",
+    distanceKm: (
+      Number(request.hospital_distance_meters ?? request.distance_meters ?? 0) / 1000
+    ).toFixed(1),
     createdAt: formatDateLabel(request.created_at),
   }));
 }

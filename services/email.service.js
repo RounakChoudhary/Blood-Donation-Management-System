@@ -55,6 +55,7 @@ async function sendHospitalDonorAcceptanceEmail({
   hospitalName,
   donorName,
   donorEmail,
+  donorPhone,
   bloodGroup,
 }) {
   const subject = "Donor accepted emergency blood request";
@@ -64,6 +65,7 @@ async function sendHospitalDonorAcceptanceEmail({
 Hospital: ${hospitalName}
 Donor: ${donorName}
 Donor email: ${donorEmail}
+Donor mobile: ${donorPhone || "Not provided"}
 Blood group: ${bloodGroup}
 `;
 

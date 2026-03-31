@@ -149,9 +149,10 @@ export default function DonorDashboard() {
                 </div>
 
                 <div className="space-y-2 text-sm text-slate-600">
+                  <p><span className="font-semibold text-on-surface">Hospital:</span> {request.hospitalName}</p>
                   <p><span className="font-semibold text-on-surface">Blood Group:</span> {request.bloodGroup}</p>
                   <p><span className="font-semibold text-on-surface">Units Required:</span> {request.unitsRequired}</p>
-                  <p><span className="font-semibold text-on-surface">Distance:</span> {request.distanceKm} km</p>
+                  <p><span className="font-semibold text-on-surface">Hospital Distance:</span> {request.distanceKm} km</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">

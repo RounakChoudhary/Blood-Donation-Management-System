@@ -57,6 +57,7 @@ async function acceptRequest({ user_id, match_id }) {
       hospitalName: context.hospital_name,
       donorName: context.donor_name,
       donorEmail: context.donor_email,
+      donorPhone: context.donor_phone,
       bloodGroup: context.blood_group,
     });
   }
@@ -152,6 +153,7 @@ async function respondToRequestByToken({ token, action }) {
         hospitalName: context.hospital_name,
         donorName: context.donor_name,
         donorEmail: context.donor_email,
+        donorPhone: context.donor_phone,
         bloodGroup: context.blood_group,
       });
     }

@@ -8,10 +8,19 @@ async function getPendingMatchesForDonor(donor_id) {
       br.blood_group,
       br.units_required,
       ROUND(m.distance_meters)::INT AS distance_meters,
+      h.id AS hospital_id,
+      h.name AS hospital_name,
+      ROUND(ST_Distance(du.location, h.location))::INT AS hospital_distance_meters,
       br.created_at
     FROM blood_request_matches m
     JOIN blood_requests br
       ON br.id = m.request_id
+    JOIN hospitals h
+      ON h.id = br.hospital_id
+    JOIN donors d
+      ON d.id = m.donor_id
+    JOIN users du
+      ON du.id = d.user_id
     WHERE
       m.donor_id = $1
       AND m.status = 'pending'
@@ -59,6 +68,7 @@ async function getMatchResponseContext(match_id) {
         d.user_id AS donor_user_id,
         u.full_name AS donor_name,
         u.email AS donor_email,
+        u.phone AS donor_phone,
         br.id AS request_id,
         br.blood_group,
         br.units_required,
@@ -133,7 +143,8 @@ async function getMatchesByRequestId(requestId) {
         m.created_at,
         d.blood_group AS donor_blood_group,
         d.availability_status AS donor_availability_status,
-        u.full_name AS donor_name
+        u.full_name AS donor_name,
+        u.phone AS donor_phone
       FROM blood_request_matches m
       JOIN donors d
         ON d.id = m.donor_id

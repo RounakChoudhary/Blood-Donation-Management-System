@@ -137,6 +137,7 @@ function mapMatchedDonors(matches = []) {
       id: match.match_id,
       donorId: match.donor_id,
       name: donorName,
+      phone: match.donor_phone || null,
       initials: getInitials(donorName),
       distance: Number.isFinite(distanceKm) ? distanceKm.toFixed(1) : "0.0",
       group: match.donor_blood_group || "N/A",
