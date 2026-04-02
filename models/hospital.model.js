@@ -26,6 +26,8 @@ async function getHospitalById(id) {
         phone,
         address,
         email,
+        ST_X(location::geometry) AS lon,
+        ST_Y(location::geometry) AS lat,
         onboarding_status,
         verified_at,
         failed_login_attempts,

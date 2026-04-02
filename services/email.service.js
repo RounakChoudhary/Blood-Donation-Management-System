@@ -158,10 +158,43 @@ Blood Donation System
   };
 }
 
+async function sendRegularBloodRequestEmail({
+  to,
+  hospitalName,
+  bloodGroup,
+  unitsRequired,
+  requiredDate,
+  notes = null,
+  subjectPrefix = "Regular",
+}) {
+  const subject = `${subjectPrefix} Blood Request`;
+  const text = `${hospitalName || "A hospital"} requested blood support.
+
+Blood group: ${bloodGroup}
+Units required: ${unitsRequired}
+Required date: ${requiredDate}
+${notes ? `Notes: ${notes}\n` : ""}
+Please contact the hospital through the BDMS workflow.
+`;
+
+  const info = await transporter.sendMail({
+    from: `"Blood Donation System" <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    text,
+  });
+
+  return {
+    messageId: info.messageId,
+    raw: info,
+  };
+}
+
 module.exports = {
   sendEmergencyEmail,
   sendHospitalDonorAcceptanceEmail,
   sendOtpEmail,
   sendPasswordResetEmail,
   sendCampStatusEmail,
+  sendRegularBloodRequestEmail,
 };

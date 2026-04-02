@@ -1,7 +1,8 @@
 const BloodRequest = require("../models/bloodRequest.model");
 const BloodRequestMatch = require("../models/bloodRequestMatch.model");
-const { sendEmailForMatches } = require("./notification.service");
+const { sendEmailForMatches, notifyBloodBanksForEmergencyRequest } = require("./notification.service");
 const responseTokenService = require("./responseToken.service");
+const bloodBankService = require("./bloodBank.service");
 
 const RADIUS_STEP_METERS = [3000, 6000, 9000];
 const DEFAULT_SEARCH_RADIUS_METERS = 3000;
@@ -146,6 +147,17 @@ async function createEmergencyRequest({
   });
 
   const notificationResults = await sendEmailForMatches(matches, request);
+  const nearbyBloodBanksResult = await bloodBankService.findNearbyBloodBanks({
+    lon: Number(lon),
+    lat: Number(lat),
+    radius_meters: radius,
+  });
+  const blood_bank_notifications = nearbyBloodBanksResult.ok
+    ? await notifyBloodBanksForEmergencyRequest({
+        request,
+        bloodBanks: nearbyBloodBanksResult.blood_banks,
+      })
+    : [];
   const requestStatus = matches.length > 0 ? "active" : "matching";
 
   const updatedRequest = await BloodRequest.transitionBloodRequestStatus({
@@ -161,6 +173,7 @@ async function createEmergencyRequest({
     initial_matches_count: matches.length,
     matches,
     notifications: notificationResults,
+    blood_bank_notifications,
   };
 }
 

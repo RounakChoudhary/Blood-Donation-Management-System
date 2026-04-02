@@ -76,6 +76,8 @@ async function getBloodBankById(id) {
         operating_hours,
         facilities,
         email,
+        ST_X(location::geometry) AS lon,
+        ST_Y(location::geometry) AS lat,
         onboarding_status,
         verified_at,
         created_at
@@ -86,6 +88,44 @@ async function getBloodBankById(id) {
     [id]
   );
   return rows[0] || null;
+}
+
+async function findNearbyBloodBanks({ lon, lat, radius_meters = 10000 }) {
+  const { rows } = await pool.query(
+    `
+      SELECT
+        id,
+        name,
+        license_number,
+        address,
+        contact_person,
+        contact_phone,
+        operating_hours,
+        facilities,
+        email,
+        onboarding_status,
+        verified_at,
+        created_at,
+        ROUND(
+          ST_Distance(
+            location,
+            ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
+          )
+        )::INT AS distance_meters
+      FROM blood_banks
+      WHERE is_deleted = false
+        AND onboarding_status = 'verified'
+        AND ST_DWithin(
+          location,
+          ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+          $3
+        )
+      ORDER BY distance_meters ASC
+    `,
+    [lon, lat, radius_meters]
+  );
+
+  return rows;
 }
 
 async function getBloodBankByLicenseNumber(license_number) {
@@ -174,6 +214,7 @@ module.exports = {
   createBloodBank,
   getBloodBankById,
   getBloodBankByLicenseNumber,
+  findNearbyBloodBanks,
   getAllBloodBanks,
   updateBloodBankStatus,
   countBloodBanks,

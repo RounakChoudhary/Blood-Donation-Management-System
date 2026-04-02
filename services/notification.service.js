@@ -3,8 +3,9 @@ const User = require("../models/user.model");
 const EmailLog = require("../models/emailLog.model");
 const Hospital = require("../models/hospital.model");
 const Match = require("../models/bloodRequestMatch.model");
+const RegularBloodRequest = require("../models/regularBloodRequest.model");
 const responseTokenService = require("./responseToken.service");
-const { sendEmergencyEmail } = require("./email.service");
+const { sendEmergencyEmail, sendRegularBloodRequestEmail } = require("./email.service");
 
 const RETRY_DELAYS_MS = [5000, 25000, 125000];
 
@@ -249,6 +250,123 @@ async function sendEmailForMatches(matches, request) {
   return results;
 }
 
+async function notifyBloodBanksForEmergencyRequest({ request, bloodBanks = [] }) {
+  if (!request || !Array.isArray(bloodBanks) || bloodBanks.length === 0) {
+    return [];
+  }
+
+  const hospital = await Hospital.getHospitalById(request.hospital_id);
+  const results = [];
+
+  for (const bank of bloodBanks) {
+    if (!bank.email) {
+      results.push({
+        blood_bank_id: bank.id,
+        ok: false,
+        reason: "Blood bank email missing",
+      });
+      continue;
+    }
+
+    try {
+      const sendResult = await sendRegularBloodRequestEmail({
+        to: bank.email,
+        hospitalName: hospital?.name || "A nearby hospital",
+        bloodGroup: request.blood_group,
+        unitsRequired: request.units_required,
+        requiredDate: new Date().toISOString().slice(0, 10),
+        notes: request.notes || request.patient_name || null,
+        subjectPrefix: "Emergency",
+      });
+
+      results.push({
+        blood_bank_id: bank.id,
+        ok: true,
+        provider_message_id: sendResult.messageId || null,
+      });
+    } catch (err) {
+      results.push({
+        blood_bank_id: bank.id,
+        ok: false,
+        reason: err.message,
+      });
+    }
+  }
+
+  return results;
+}
+
+async function notifyBloodBanksForRegularRequest({ request, bloodBanks = [] }) {
+  if (!request || !Array.isArray(bloodBanks) || bloodBanks.length === 0) {
+    return [];
+  }
+
+  const hospital = await Hospital.getHospitalById(request.hospital_id);
+  const results = [];
+
+  for (const bank of bloodBanks) {
+    if (!bank.email) {
+      await RegularBloodRequest.createRegularBloodRequestNotification({
+        regular_request_id: request.id,
+        blood_bank_id: bank.id,
+        recipient_email: null,
+        status: "failed",
+        error_message: "Blood bank email missing",
+      });
+
+      results.push({
+        blood_bank_id: bank.id,
+        ok: false,
+        reason: "Blood bank email missing",
+      });
+      continue;
+    }
+
+    try {
+      const sendResult = await sendRegularBloodRequestEmail({
+        to: bank.email,
+        hospitalName: hospital?.name || "A nearby hospital",
+        bloodGroup: request.blood_group,
+        unitsRequired: request.units_required,
+        requiredDate: request.required_date,
+        notes: request.notes || null,
+        subjectPrefix: "Regular",
+      });
+
+      await RegularBloodRequest.createRegularBloodRequestNotification({
+        regular_request_id: request.id,
+        blood_bank_id: bank.id,
+        recipient_email: bank.email,
+        status: "sent",
+      });
+
+      results.push({
+        blood_bank_id: bank.id,
+        ok: true,
+        provider_message_id: sendResult.messageId || null,
+      });
+    } catch (err) {
+      await RegularBloodRequest.createRegularBloodRequestNotification({
+        regular_request_id: request.id,
+        blood_bank_id: bank.id,
+        recipient_email: bank.email,
+        status: "failed",
+        error_message: err.message,
+      });
+
+      results.push({
+        blood_bank_id: bank.id,
+        ok: false,
+        reason: err.message,
+      });
+    }
+  }
+
+  return results;
+}
+
 module.exports = {
   sendEmailForMatches,
+  notifyBloodBanksForEmergencyRequest,
+  notifyBloodBanksForRegularRequest,
 };
