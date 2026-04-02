@@ -15,6 +15,7 @@ router.get("/stats", adminController.getAdminStats);
 // Users
 router.get("/users", adminController.getAllUsers);
 router.patch("/users/:id/role", adminController.updateUserRole);
+router.patch("/users/:id/status", adminController.updateUserStatus);
 router.delete("/users/:id", adminController.deleteUser);
 
 // Hospitals (RESTful PATCH for targeted status updates)
@@ -31,5 +32,9 @@ router.delete("/blood-banks/:id", adminController.deleteBloodBank);
 // Blood Requests
 router.get("/blood-requests", adminController.getAllBloodRequests);
 router.delete("/blood-requests/:id", adminController.deleteBloodRequest);
+
+// System Config
+router.get("/config", adminController.getSystemConfig);
+router.patch("/config", adminController.updateSystemConfig);
 
 module.exports = router;

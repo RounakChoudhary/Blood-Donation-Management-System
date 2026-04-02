@@ -40,6 +40,11 @@ async function hospitalAuth(req, res, next) {
       actorType: decoded.actorType,
       isVerified: true,
     };
+    req.actor = {
+      id: hospital.id,
+      role: "hospital",
+      actorType: "hospital",
+    };
 
     next();
   } catch (err) {

@@ -45,6 +45,7 @@ async function createUser({
       role,
       email_verified,
       is_active,
+      access_status,
       failed_login_attempts,
       last_failed_login_at,
       locked_until,
@@ -68,6 +69,7 @@ async function getUserByEmail(email) {
       role,
       email_verified,
       is_active,
+      access_status,
       failed_login_attempts,
       last_failed_login_at,
       locked_until,
@@ -91,6 +93,7 @@ async function getUserByPhone(phone) {
       role,
       email_verified,
       is_active,
+      access_status,
       failed_login_attempts,
       last_failed_login_at,
       locked_until,
@@ -134,6 +137,7 @@ async function getUserById(id) {
       role,
       email_verified,
       is_active,
+      access_status,
       failed_login_attempts,
       last_failed_login_at,
       locked_until,
@@ -173,6 +177,7 @@ async function getAllUsers(limit = 50, offset = 0, search = "") {
     query = `
       SELECT
         id, full_name, email, phone, role, created_at, location_updated_at,
+        access_status,
         COUNT(*) OVER() AS total_count
       FROM users
       WHERE is_deleted = false
@@ -185,6 +190,7 @@ async function getAllUsers(limit = 50, offset = 0, search = "") {
     query = `
       SELECT
         id, full_name, email, phone, role, created_at, location_updated_at,
+        access_status,
         COUNT(*) OVER() AS total_count
       FROM users
       WHERE is_deleted = false
@@ -239,6 +245,7 @@ async function activateUser(userId) {
         role,
         email_verified,
         is_active,
+        access_status,
         failed_login_attempts,
         last_failed_login_at,
         locked_until,
@@ -272,15 +279,16 @@ async function updateUserContactAndLocation({
       END
     WHERE id = $4
       AND is_deleted = false
-    RETURNING
-      id,
-      full_name,
-      email,
-      phone,
-      role,
-      email_verified,
-      is_active,
-      failed_login_attempts,
+      RETURNING
+        id,
+        full_name,
+        email,
+        phone,
+        role,
+        email_verified,
+        is_active,
+        access_status,
+        failed_login_attempts,
       last_failed_login_at,
       locked_until,
       created_at,
@@ -368,6 +376,36 @@ async function updatePasswordById({ userId, password_hash }) {
   return rows[0] || null;
 }
 
+async function updateUserAccessStatus({ userId, access_status }) {
+  const isActive = access_status === "active";
+  const { rows } = await pool.query(
+    `
+      UPDATE users
+      SET
+        access_status = $2,
+        is_active = $3,
+        locked_until = CASE
+          WHEN $2 = 'restricted' THEN NOW() + INTERVAL '100 years'
+          WHEN $2 = 'active' THEN NULL
+          ELSE locked_until
+        END
+      WHERE id = $1
+        AND is_deleted = false
+      RETURNING
+        id,
+        full_name,
+        email,
+        phone,
+        role,
+        is_active,
+        access_status
+    `,
+    [userId, access_status, isActive]
+  );
+
+  return rows[0] || null;
+}
+
 module.exports = {
   createUser,
   getUserByEmail,
@@ -384,4 +422,5 @@ module.exports = {
   recordFailedLoginAttempt,
   resetLoginAttempts,
   updatePasswordById,
+  updateUserAccessStatus,
 };
