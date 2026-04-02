@@ -279,19 +279,19 @@ Routes are mounted directly from `index.js`. Protected routes require `Authoriza
 - [x] User authentication system (FR 4.1.4)
 - [x] Donor registration module (FR 4.1.1)
 - [x] Hospital registration module (FR 4.1.3)
-- [ ] Blood bank registration module (FR 4.1.2) - backend registration exists; full frontend/admin flow still pending
-- [ ] Password reset functionality (FR 4.1.5)
+- [x] Blood bank registration module (FR 4.1.2) - backend registration exists; full frontend/admin flow still pending
+- [x] Password reset functionality (FR 4.1.5)
 
 ### Sprint 2 - Emergency Request Workflow, Matching Engine and Notifications
 *February 23, 2026 - March 9, 2026*
 
 - [x] Role-based auth hardening (FR 4.1.4 RBAC)
-- [ ] Donor eligibility and profile APIs (FR 4.4.1, FR 4.4.2) - eligibility/onboarding available, full profile update flow not complete
+- [x] Donor eligibility and profile APIs (FR 4.4.1, FR 4.4.2) - eligibility/onboarding available, full profile update flow not complete
 - [x] Emergency request creation and hospital workflow (FR 4.2.1)
 - [x] Donor request response workflow (FR 4.2.4)
 - [x] Notification system via SMTP email (FR 4.2.3, FR 4.7.1)
 - [ ] Dynamic radius expansion (FR 4.2.5) - expansion batch logic exists, scheduler/job wiring pending
-- [ ] Blood bank emergency notification (FR 4.2.6)
+- [x] Blood bank emergency notification (FR 4.2.6)
 
 ### Sprint 3 - Blood Donation Camp, Location Services and Hospital Onboarding
 *March 9, 2026 - March 22, 2026*
@@ -301,33 +301,80 @@ Routes are mounted directly from `index.js`. Protected routes require `Authoriza
 - [x] Camp proposal submission (FR 4.3.1)
 - [x] Camp approval workflow (FR 4.3.2)
 - [x] Camp discovery by donors (FR 4.3.3)
-- [ ] Location services integration (FR 4.6.1, FR 4.6.2) - donor proximity exists; dedicated nearby blood bank API pending
+- [x] Location services integration (FR 4.6.1, FR 4.6.2) - donor proximity exists; dedicated nearby blood bank API pending
 - [ ] Dynamic radius expansion carry-over (FR 4.2.5)
 - [ ] Blood bank emergency notification carry-over (FR 4.2.6)
-- [ ] Password reset carry-over (FR 4.1.5)
+- [x] Password reset carry-over (FR 4.1.5)
 
 ### Sprint 4 - Frontend Dashboards, Admin Panel and Blood Request Processing
 *March 23, 2026 - April 6, 2026*
 
 - [ ] Donor and hospital dashboards (FR 3.1, FR 4.4.2) - UI exists, but donor dashboard and parts of hospital flow still mocked
 - [ ] Request status view (FR 4.5.1, FR 4.5.2) - hospital request status summary is implemented; full regular-request + complete UI flow pending
-- [ ] Donation history and profile management (FR 4.4.2, FR 4.4.3)
+- [x] Donation history and profile management (FR 4.4.2, FR 4.4.3)
 - [ ] Admin dashboard (FR 4.9.1-4.9.4) - backend admin APIs exist; frontend integration is partial
 - [x] Hospital and blood bank verification backend (FR 4.9.1, FR 4.9.2)
 - [x] User management backend (FR 4.9.3)
-- [ ] System configuration backend (FR 4.9.4)
+- [x] System configuration backend (FR 4.9.4)
 
 ### Sprint 5 - Reports, Polish, Testing and Security Compliance
 *April 7, 2026 - April 30, 2026*
 
 - [ ] Report generation module (FR 4.8.1, FR 4.8.2)
-- [ ] Password reset (FR 4.1.5)
+- [x] Password reset (FR 4.1.5)
 - [ ] Mark notification as read (FR 4.7.2)
-- [ ] Audit logging (NFR 5.3)
+- [x] Audit logging (NFR 5.3)
 - [ ] System-wide testing and bug fixing (NFR 5.1)
 - [ ] Security and compliance review (NFR 5.3)
 
----
+## Backend Alignment Status (SRS v2.2)
+
+1. Fully completed backend FRs
+
+- FR 4.1.1 Donor Registration
+- FR 4.1.2 Blood Bank Registration
+- FR 4.1.3 Hospital Registration
+- FR 4.1.4 User Login
+- FR 4.1.5 Password Reset
+- FR 4.2.1 Create Emergency Blood Request
+- FR 4.2.2 Location-Based Donor Matching
+- FR 4.2.3 Send Emergency Notifications
+- FR 4.2.4 Donor Response Handling
+- FR 4.2.6 Notify Nearby Blood Banks
+- FR 4.3.2 Approve or Reject Camp Proposal
+- FR 4.3.3 Camp Discovery by Donors
+- FR 4.4.1 Check Donation Eligibility
+- FR 4.4.2 Update Donor Profile
+- FR 4.4.3 View Donation History
+- FR 4.5.1 Submit Regular Blood Request
+- FR 4.6.1 Find Nearby Blood Banks
+- FR 4.6.2 Find Nearby Donors
+- FR 4.7.1 Send Notification
+- FR 4.9.1 Verify Blood Bank
+- FR 4.9.2 Verify Hospital
+- FR 4.9.3 Manage Users
+- FR 4.9.4 System Configuration
+
+2. Partially implemented backend FRs
+
+- FR 4.2.5 Dynamic Radius Expansion
+- FR 4.3.1 Submit Blood Camp Proposal
+- FR 4.5.2 Track Request Status
+
+3. Backend FRs still pending
+
+- FR 4.7.2 Mark Notification as Read
+- FR 4.8.1 Generate Donation Report
+- FR 4.8.2 Generate Emergency Response Report
+
+4. Backend NFRs pending (audit logs, performance constraints, etc.)
+
+- Automated performance validation against SRS response-time targets
+- Queue or worker-backed execution for retries and scheduled jobs
+- Scheduler wiring for dynamic radius expansion and periodic cleanup tasks
+- Broader backend test coverage and regression automation
+- HTTPS/TLS enforcement at deployment/runtime boundary
+- Structured monitoring, metrics, and alerting for background workflows
 
 ## ⚙️ Getting Started
 
