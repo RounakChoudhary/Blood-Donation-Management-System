@@ -159,6 +159,24 @@ async function getMatchesByRequestId(requestId) {
   return rows;
 }
 
+async function countMatchesByRequestId(requestId) {
+  const normalizedId = Number(requestId);
+  if (!Number.isInteger(normalizedId) || normalizedId <= 0) {
+    return 0;
+  }
+
+  const { rows } = await pool.query(
+    `
+      SELECT COUNT(*)::INT AS count
+      FROM blood_request_matches
+      WHERE request_id = $1
+    `,
+    [normalizedId]
+  );
+
+  return rows[0]?.count ?? 0;
+}
+
 module.exports = {
   getPendingMatchesForDonor,
   getMatchById,
@@ -166,4 +184,5 @@ module.exports = {
   getMatchResponseContext,
   getResponseSummaryByRequestIds,
   getMatchesByRequestId,
+  countMatchesByRequestId,
 };

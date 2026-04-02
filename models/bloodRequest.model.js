@@ -7,7 +7,10 @@ async function createBloodRequest({
   units_required,
   lon,
   lat,
-  search_radius_meters = 5000,
+  urgency_level = null,
+  patient_name = null,
+  notes = null,
+  search_radius_meters = 3000,
 }) {
   const query = `
     INSERT INTO blood_requests (
@@ -15,6 +18,9 @@ async function createBloodRequest({
       blood_group,
       units_required,
       location,
+      urgency_level,
+      patient_name,
+      notes,
       search_radius_meters
     )
     VALUES (
@@ -22,7 +28,10 @@ async function createBloodRequest({
       $2,
       $3,
       ST_SetSRID(ST_MakePoint($4, $5), 4326)::geography,
-      $6
+      $6,
+      $7,
+      $8,
+      $9
     )
     RETURNING *;
   `;
@@ -33,6 +42,9 @@ async function createBloodRequest({
     units_required,
     lon,
     lat,
+    urgency_level,
+    patient_name,
+    notes,
     search_radius_meters,
   ];
 
@@ -70,7 +82,7 @@ async function getBloodRequestsByHospitalId(hospital_id, limit = 50, offset = 0)
 
 async function createMatches({
   request_id,
-  radius_meters = 5000,
+  radius_meters = 3000,
   limit = 50,
 }) {
   const req = await pool.query(
@@ -126,6 +138,9 @@ async function listRequestsEligibleForAutoExpansion({
     SELECT br.*
     FROM blood_requests br
     WHERE
+      br.is_deleted = false
+      AND br.status IN ('pending', 'matching', 'active')
+      AND
       br.search_radius_meters < 9000
       AND br.last_radius_expanded_at <= NOW() - ($1 || ' minutes')::interval
       AND NOT EXISTS (
@@ -142,6 +157,24 @@ async function listRequestsEligibleForAutoExpansion({
   return rows;
 }
 
+async function getActiveBloodRequestByHospitalAndGroup({ hospital_id, blood_group }) {
+  const { rows } = await pool.query(
+    `
+      SELECT *
+      FROM blood_requests
+      WHERE hospital_id = $1
+        AND blood_group = $2
+        AND is_deleted = false
+        AND status IN ('pending', 'matching', 'active')
+      ORDER BY created_at DESC
+      LIMIT 1
+    `,
+    [hospital_id, blood_group]
+  );
+
+  return rows[0] || null;
+}
+
 async function updateSearchRadius({
   request_id,
   new_radius_meters,
@@ -152,6 +185,7 @@ async function updateSearchRadius({
       search_radius_meters = $2,
       last_radius_expanded_at = NOW()
     WHERE id = $1
+      AND is_deleted = false
       AND search_radius_meters < $2
     RETURNING *
   `;
@@ -248,12 +282,35 @@ async function updateBloodRequestStatus({ request_id, status }) {
   return rows[0] || null;
 }
 
+async function transitionBloodRequestStatus({
+  request_id,
+  from_statuses,
+  to_status,
+}) {
+  const allowedFromStatuses = Array.isArray(from_statuses) ? from_statuses : [from_statuses];
+
+  const { rows } = await pool.query(
+    `
+      UPDATE blood_requests
+      SET status = $3
+      WHERE id = $1
+        AND is_deleted = false
+        AND status = ANY($2::varchar[])
+      RETURNING *
+    `,
+    [request_id, allowedFromStatuses, to_status]
+  );
+
+  return rows[0] || null;
+}
+
 module.exports = {
   createBloodRequest,
   getBloodRequestById,
   getBloodRequestsByHospitalId,
   createMatches,
   listRequestsEligibleForAutoExpansion,
+  getActiveBloodRequestByHospitalAndGroup,
   updateSearchRadius,
   getAllBloodRequests,
   countBloodRequests,
@@ -261,4 +318,5 @@ module.exports = {
   countFulfilledBloodRequests,
   deleteBloodRequest,
   updateBloodRequestStatus,
+  transitionBloodRequestStatus,
 };

@@ -3,6 +3,9 @@ const BloodRequestMatch = require("../models/bloodRequestMatch.model");
 const { sendEmailForMatches } = require("./notification.service");
 
 const RADIUS_STEP_METERS = [3000, 6000, 9000];
+const DEFAULT_SEARCH_RADIUS_METERS = 3000;
+const ACTIVE_REQUEST_STATUSES = new Set(["pending", "matching", "active"]);
+const ALLOWED_URGENCY_LEVELS = new Set(["Critical", "Urgent", "Routine"]);
 
 function normalizeBloodGroup(value) {
   if (!value || typeof value !== "string") return null;
@@ -13,6 +16,19 @@ function toPositiveInteger(value, fallback) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0) return fallback;
   return parsed;
+}
+
+function normalizeUrgencyLevel(value) {
+  if (!value || typeof value !== "string") return null;
+
+  const normalized = value.trim().toLowerCase();
+  const map = {
+    critical: "Critical",
+    urgent: "Urgent",
+    routine: "Routine",
+  };
+
+  return map[normalized] || null;
 }
 
 function getNextExpansionRadius(currentRadiusMeters) {
@@ -55,12 +71,20 @@ async function createEmergencyRequest({
   units_required,
   lon,
   lat,
-  search_radius_meters = 5000,
+  urgency_level,
+  patient_name = null,
+  notes = null,
+  search_radius_meters = DEFAULT_SEARCH_RADIUS_METERS,
   match_limit = 25,
 }) {
   const normalizedGroup = normalizeBloodGroup(blood_group);
   if (!normalizedGroup) {
     return { ok: false, status: 400, error: "Invalid blood_group" };
+  }
+
+  const normalizedUrgencyLevel = normalizeUrgencyLevel(urgency_level);
+  if (!normalizedUrgencyLevel || !ALLOWED_URGENCY_LEVELS.has(normalizedUrgencyLevel)) {
+    return { ok: false, status: 400, error: "urgency_level must be Critical, Urgent, or Routine" };
   }
 
   const units = Number(units_required);
@@ -77,9 +101,18 @@ async function createEmergencyRequest({
     return { ok: false, status: 400, error: "Valid lon and lat are required" };
   }
 
-  const radius = Number(search_radius_meters);
-  if (!Number.isInteger(radius) || radius <= 0) {
-    return { ok: false, status: 400, error: "search_radius_meters must be a positive integer" };
+  const radius = toPositiveInteger(search_radius_meters, DEFAULT_SEARCH_RADIUS_METERS);
+
+  const existingActiveRequest = await BloodRequest.getActiveBloodRequestByHospitalAndGroup({
+    hospital_id,
+    blood_group: normalizedGroup,
+  });
+  if (existingActiveRequest) {
+    return {
+      ok: false,
+      status: 409,
+      error: "An active emergency request already exists for this hospital and blood group",
+    };
   }
 
   const request = await BloodRequest.createBloodRequest({
@@ -88,7 +121,16 @@ async function createEmergencyRequest({
     units_required: units,
     lon: Number(lon),
     lat: Number(lat),
+    urgency_level: normalizedUrgencyLevel,
+    patient_name: patient_name ?? null,
+    notes: notes ?? null,
     search_radius_meters: radius,
+  });
+
+  await BloodRequest.transitionBloodRequestStatus({
+    request_id: request.id,
+    from_statuses: ["pending"],
+    to_status: "matching",
   });
 
   const matches = await BloodRequest.createMatches({
@@ -98,11 +140,12 @@ async function createEmergencyRequest({
   });
 
   const notificationResults = await sendEmailForMatches(matches, request);
-  const requestStatus = matches.length > 0 ? "matched" : "open";
+  const requestStatus = matches.length > 0 ? "active" : "matching";
 
-  const updatedRequest = await BloodRequest.updateBloodRequestStatus({
+  const updatedRequest = await BloodRequest.transitionBloodRequestStatus({
     request_id: request.id,
-    status: requestStatus,
+    from_statuses: ["pending", "matching"],
+    to_status: requestStatus,
   });
 
   return {
@@ -145,18 +188,39 @@ async function rematchRequest({ hospital_id, request_id, radius_meters, limit = 
   }
 
   const request = requestResult.request;
+  if (!ACTIVE_REQUEST_STATUSES.has(request.status)) {
+    return {
+      ok: false,
+      status: 409,
+      error: "Only pending, matching, or active requests can be rematched",
+    };
+  }
+
+  await BloodRequest.transitionBloodRequestStatus({
+    request_id,
+    from_statuses: ["pending", "matching", "active"],
+    to_status: "matching",
+  });
+
   const matches = await BloodRequest.createMatches({
     request_id,
-    radius_meters: Number(radius_meters ?? request.search_radius_meters ?? 5000),
+    radius_meters: toPositiveInteger(
+      radius_meters,
+      toPositiveInteger(request.search_radius_meters, DEFAULT_SEARCH_RADIUS_METERS)
+    ),
     limit: Number(limit),
   });
 
-  if (matches.length > 0 && request.status !== "matched") {
-    await BloodRequest.updateBloodRequestStatus({
-      request_id,
-      status: "matched",
-    });
-  }
+  const totalMatchCount = await BloodRequestMatch.countMatchesByRequestId(request_id);
+  const nextStatus = matches.length > 0 || totalMatchCount > 0
+    ? "active"
+    : "matching";
+
+  await BloodRequest.transitionBloodRequestStatus({
+    request_id,
+    from_statuses: ["pending", "matching", "active"],
+    to_status: nextStatus,
+  });
 
   return {
     ok: true,
@@ -235,6 +299,13 @@ async function runAutoRadiusExpansionBatch({
       });
 
       const notifications = await sendEmailForMatches(matches, updatedRequest);
+      const nextStatus = matches.length > 0 ? "active" : "matching";
+
+      await BloodRequest.transitionBloodRequestStatus({
+        request_id: request.id,
+        from_statuses: ["pending", "matching", "active"],
+        to_status: nextStatus,
+      });
 
       results.push({
         request_id: request.id,
