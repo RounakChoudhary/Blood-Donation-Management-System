@@ -251,6 +251,52 @@ async function activateUser(userId) {
   return rows[0] || null;
 }
 
+async function updateUserContactAndLocation({
+  userId,
+  phone = null,
+  lon = undefined,
+  lat = undefined,
+}) {
+  const shouldUpdateLocation = lon !== undefined && lat !== undefined;
+  const query = `
+    UPDATE users
+    SET
+      phone = COALESCE($1, phone),
+      location = CASE
+        WHEN $2::double precision IS NULL OR $3::double precision IS NULL THEN location
+        ELSE ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography
+      END,
+      location_updated_at = CASE
+        WHEN $2::double precision IS NULL OR $3::double precision IS NULL THEN location_updated_at
+        ELSE NOW()
+      END
+    WHERE id = $4
+      AND is_deleted = false
+    RETURNING
+      id,
+      full_name,
+      email,
+      phone,
+      role,
+      email_verified,
+      is_active,
+      failed_login_attempts,
+      last_failed_login_at,
+      locked_until,
+      created_at,
+      location_updated_at;
+  `;
+
+  const { rows } = await pool.query(query, [
+    phone,
+    shouldUpdateLocation ? lon : null,
+    shouldUpdateLocation ? lat : null,
+    userId,
+  ]);
+
+  return rows[0] || null;
+}
+
 async function recordFailedLoginAttempt(userId) {
   const { rows } = await pool.query(
     `
@@ -327,6 +373,7 @@ module.exports = {
   getUserByEmail,
   getUserByPhone,
   updateUserLocation,
+  updateUserContactAndLocation,
   getUserById,
   getUsersByDonorIds,
   getAllUsers,

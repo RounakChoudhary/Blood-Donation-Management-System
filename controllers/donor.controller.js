@@ -64,8 +64,45 @@ async function updateAvailability(req, res) {
   }
 }
 
+async function updateProfile(req, res) {
+  try {
+    const result = await donorService.updateMyProfile(req.user.id, req.body);
+
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    return res.status(result.status).json({
+      message: "Profile updated successfully",
+      donor: result.donor,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+}
+
+async function getDonationHistory(req, res) {
+  try {
+    const result = await donorService.getDonationHistory(req.user.id);
+
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    return res.status(result.status).json({
+      donation_records: result.donation_records,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+}
+
 module.exports = {
   becomeVolunteer,
   getMyDonorProfile,
   updateAvailability,
+  updateProfile,
+  getDonationHistory,
 };

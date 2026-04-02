@@ -6,6 +6,10 @@ async function createDonor({
   last_donation_date = null,
   deferred_until = null,
   availability_status = "available",
+  date_of_birth = null,
+  address = null,
+  emergency_contact_name = null,
+  emergency_contact_phone = null,
 }) {
   const query = `
     INSERT INTO donors (
@@ -13,9 +17,13 @@ async function createDonor({
       blood_group,
       last_donation_date,
       deferred_until,
-      availability_status
+      availability_status,
+      date_of_birth,
+      address,
+      emergency_contact_name,
+      emergency_contact_phone
     )
-    VALUES ($1, $2, $3, $4, $5)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     RETURNING
       id,
       user_id,
@@ -23,6 +31,10 @@ async function createDonor({
       last_donation_date,
       deferred_until,
       availability_status,
+      date_of_birth,
+      address,
+      emergency_contact_name,
+      emergency_contact_phone,
       created_at,
       updated_at;
   `;
@@ -33,6 +45,10 @@ async function createDonor({
     last_donation_date,
     deferred_until,
     availability_status,
+    date_of_birth,
+    address,
+    emergency_contact_name,
+    emergency_contact_phone,
   ];
 
   const { rows } = await pool.query(query, values);
@@ -48,6 +64,10 @@ async function getDonorByUserId(user_id) {
       last_donation_date,
       deferred_until,
       availability_status,
+      date_of_birth,
+      address,
+      emergency_contact_name,
+      emergency_contact_phone,
       created_at,
       updated_at
     FROM donors
@@ -67,6 +87,10 @@ async function getDonorById(id) {
       last_donation_date,
       deferred_until,
       availability_status,
+      date_of_birth,
+      address,
+      emergency_contact_name,
+      emergency_contact_phone,
       created_at,
       updated_at
     FROM donors
@@ -91,6 +115,10 @@ async function updateAvailabilityByUserId({ user_id, availability_status }) {
       last_donation_date,
       deferred_until,
       availability_status,
+      date_of_birth,
+      address,
+      emergency_contact_name,
+      emergency_contact_phone,
       created_at,
       updated_at;
   `;
@@ -113,6 +141,10 @@ async function updateAvailabilityByDonorId({ donor_id, availability_status }) {
       last_donation_date,
       deferred_until,
       availability_status,
+      date_of_birth,
+      address,
+      emergency_contact_name,
+      emergency_contact_phone,
       created_at,
       updated_at;
   `;
@@ -136,11 +168,60 @@ async function markDonated({ donor_id, donation_date = null, cooldown_days = 120
       last_donation_date,
       deferred_until,
       availability_status,
+      date_of_birth,
+      address,
+      emergency_contact_name,
+      emergency_contact_phone,
       created_at,
       updated_at;
   `;
 
   const { rows } = await pool.query(query, [donor_id, donation_date, String(cooldown_days)]);
+  return rows[0] || null;
+}
+
+async function updateProfileByUserId({
+  user_id,
+  date_of_birth = null,
+  address = null,
+  emergency_contact_name = null,
+  emergency_contact_phone = null,
+  availability_status = null,
+}) {
+  const query = `
+    UPDATE donors
+    SET
+      date_of_birth = COALESCE($1, date_of_birth),
+      address = COALESCE($2, address),
+      emergency_contact_name = COALESCE($3, emergency_contact_name),
+      emergency_contact_phone = COALESCE($4, emergency_contact_phone),
+      availability_status = COALESCE($5, availability_status),
+      updated_at = NOW()
+    WHERE user_id = $6
+    RETURNING
+      id,
+      user_id,
+      blood_group,
+      last_donation_date,
+      deferred_until,
+      availability_status,
+      date_of_birth,
+      address,
+      emergency_contact_name,
+      emergency_contact_phone,
+      created_at,
+      updated_at;
+  `;
+
+  const { rows } = await pool.query(query, [
+    date_of_birth,
+    address,
+    emergency_contact_name,
+    emergency_contact_phone,
+    availability_status,
+    user_id,
+  ]);
+
   return rows[0] || null;
 }
 
@@ -156,5 +237,6 @@ module.exports = {
   updateAvailabilityByUserId,
   updateAvailabilityByDonorId,
   markDonated,
+  updateProfileByUserId,
   countDonors,
 };
