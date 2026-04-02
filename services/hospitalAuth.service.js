@@ -5,6 +5,10 @@ const Hospital = require("../models/hospital.model");
 const JWT_SECRET = process.env.JWT_SECRET;
 const BCRYPT_ROUNDS = 12;
 
+function isLocked(lockedUntil) {
+  return Boolean(lockedUntil && new Date(lockedUntil).getTime() > Date.now());
+}
+
 async function registerHospital({ name, phone, address, lon, lat }) {
   if (!name || !phone) {
     return { ok: false, status: 400, error: "Missing fields" };
@@ -133,6 +137,10 @@ async function loginHospital({ email, password }) {
     return { ok: false, status: 401, error: "Invalid credentials" };
   }
 
+  if (isLocked(hospital.locked_until)) {
+    return { ok: false, status: 423, error: "Account is locked. Try again later." };
+  }
+
   if (hospital.onboarding_status !== "verified") {
     return { ok: false, status: 403, error: "Hospital is not verified yet" };
   }
@@ -143,8 +151,11 @@ async function loginHospital({ email, password }) {
 
   const ok = await bcrypt.compare(password, hospital.password_hash);
   if (!ok) {
+    await Hospital.recordFailedLoginAttempt(hospital.id);
     return { ok: false, status: 401, error: "Invalid credentials" };
   }
+
+  await Hospital.resetLoginAttempts(hospital.id);
 
   const token = jwt.sign(
     {

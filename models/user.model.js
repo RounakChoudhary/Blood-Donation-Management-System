@@ -45,6 +45,9 @@ async function createUser({
       role,
       email_verified,
       is_active,
+      failed_login_attempts,
+      last_failed_login_at,
+      locked_until,
       created_at,
       location_updated_at;
   `;
@@ -65,6 +68,9 @@ async function getUserByEmail(email) {
       role,
       email_verified,
       is_active,
+      failed_login_attempts,
+      last_failed_login_at,
+      locked_until,
       created_at,
       location_updated_at
     FROM users
@@ -85,6 +91,9 @@ async function getUserByPhone(phone) {
       role,
       email_verified,
       is_active,
+      failed_login_attempts,
+      last_failed_login_at,
+      locked_until,
       created_at,
       location_updated_at
     FROM users
@@ -125,6 +134,9 @@ async function getUserById(id) {
       role,
       email_verified,
       is_active,
+      failed_login_attempts,
+      last_failed_login_at,
+      locked_until,
       created_at,
       location_updated_at
     FROM users
@@ -227,10 +239,84 @@ async function activateUser(userId) {
         role,
         email_verified,
         is_active,
+        failed_login_attempts,
+        last_failed_login_at,
+        locked_until,
         created_at,
         location_updated_at
     `,
     [userId]
+  );
+
+  return rows[0] || null;
+}
+
+async function recordFailedLoginAttempt(userId) {
+  const { rows } = await pool.query(
+    `
+      UPDATE users
+      SET
+        failed_login_attempts = CASE
+          WHEN last_failed_login_at IS NULL
+            OR last_failed_login_at < NOW() - INTERVAL '15 minutes'
+            THEN 1
+          ELSE failed_login_attempts + 1
+        END,
+        last_failed_login_at = NOW(),
+        locked_until = CASE
+          WHEN (
+            CASE
+              WHEN last_failed_login_at IS NULL
+                OR last_failed_login_at < NOW() - INTERVAL '15 minutes'
+                THEN 1
+              ELSE failed_login_attempts + 1
+            END
+          ) >= 5
+            THEN NOW() + INTERVAL '15 minutes'
+          ELSE locked_until
+        END
+      WHERE id = $1
+        AND is_deleted = false
+      RETURNING
+        id,
+        failed_login_attempts,
+        last_failed_login_at,
+        locked_until
+    `,
+    [userId]
+  );
+
+  return rows[0] || null;
+}
+
+async function resetLoginAttempts(userId) {
+  const { rows } = await pool.query(
+    `
+      UPDATE users
+      SET
+        failed_login_attempts = 0,
+        last_failed_login_at = NULL,
+        locked_until = NULL
+      WHERE id = $1
+        AND is_deleted = false
+      RETURNING id
+    `,
+    [userId]
+  );
+
+  return rows[0] || null;
+}
+
+async function updatePasswordById({ userId, password_hash }) {
+  const { rows } = await pool.query(
+    `
+      UPDATE users
+      SET password_hash = $2
+      WHERE id = $1
+        AND is_deleted = false
+      RETURNING id
+    `,
+    [userId, password_hash]
   );
 
   return rows[0] || null;
@@ -248,4 +334,7 @@ module.exports = {
   updateUserRole,
   deleteUser,
   activateUser,
+  recordFailedLoginAttempt,
+  resetLoginAttempts,
+  updatePasswordById,
 };

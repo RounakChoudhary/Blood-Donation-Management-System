@@ -105,6 +105,34 @@ If you did not request this registration, ignore this email.
   };
 }
 
+async function sendPasswordResetEmail({ to, token, expiresInMinutes }) {
+  const resetBaseUrl = process.env.PASSWORD_RESET_BASE_URL || APP_BASE_URL;
+  const resetLink = `${resetBaseUrl}/reset-password?token=${encodeURIComponent(token)}`;
+  const subject = "Reset your BDMS password";
+
+  const text = `A password reset was requested for your BDMS account.
+
+Reset link:
+${resetLink}
+
+This link expires in ${expiresInMinutes} minutes and can be used only once.
+
+If you did not request a password reset, ignore this email.
+`;
+
+  const info = await transporter.sendMail({
+    from: `"Blood Donation System" <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    text,
+  });
+
+  return {
+    messageId: info.messageId,
+    raw: info,
+  };
+}
+
 async function sendCampStatusEmail({ to, campName, status }) {
   const subject = `Blood Camp Proposal ${status.toUpperCase()}`;
   
@@ -134,5 +162,6 @@ module.exports = {
   sendEmergencyEmail,
   sendHospitalDonorAcceptanceEmail,
   sendOtpEmail,
+  sendPasswordResetEmail,
   sendCampStatusEmail,
 };

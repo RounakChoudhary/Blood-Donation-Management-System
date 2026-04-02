@@ -28,6 +28,9 @@ async function getHospitalById(id) {
         email,
         onboarding_status,
         verified_at,
+        failed_login_attempts,
+        last_failed_login_at,
+        locked_until,
         created_at
       FROM hospitals
       WHERE id = $1
@@ -50,6 +53,9 @@ async function getHospitalByEmail(email) {
         password_hash,
         onboarding_status,
         verified_at,
+        failed_login_attempts,
+        last_failed_login_at,
+        locked_until,
         created_at
       FROM hospitals
       WHERE email = $1
@@ -71,6 +77,9 @@ async function getHospitalByPhone(phone) {
         email,
         onboarding_status,
         verified_at,
+        failed_login_attempts,
+        last_failed_login_at,
+        locked_until,
         created_at
       FROM hospitals
       WHERE phone = $1
@@ -187,6 +196,58 @@ async function deleteHospital(hospitalId) {
   return rows[0] || null;
 }
 
+async function recordFailedLoginAttempt(hospitalId) {
+  const { rows } = await pool.query(
+    `
+      UPDATE hospitals
+      SET
+        failed_login_attempts = CASE
+          WHEN last_failed_login_at IS NULL
+            OR last_failed_login_at < NOW() - INTERVAL '15 minutes'
+            THEN 1
+          ELSE failed_login_attempts + 1
+        END,
+        last_failed_login_at = NOW(),
+        locked_until = CASE
+          WHEN (
+            CASE
+              WHEN last_failed_login_at IS NULL
+                OR last_failed_login_at < NOW() - INTERVAL '15 minutes'
+                THEN 1
+              ELSE failed_login_attempts + 1
+            END
+          ) >= 5
+            THEN NOW() + INTERVAL '15 minutes'
+          ELSE locked_until
+        END
+      WHERE id = $1
+        AND is_deleted = false
+      RETURNING id, failed_login_attempts, last_failed_login_at, locked_until
+    `,
+    [hospitalId]
+  );
+
+  return rows[0] || null;
+}
+
+async function resetLoginAttempts(hospitalId) {
+  const { rows } = await pool.query(
+    `
+      UPDATE hospitals
+      SET
+        failed_login_attempts = 0,
+        last_failed_login_at = NULL,
+        locked_until = NULL
+      WHERE id = $1
+        AND is_deleted = false
+      RETURNING id
+    `,
+    [hospitalId]
+  );
+
+  return rows[0] || null;
+}
+
 module.exports = {
   createHospital,
   getHospitalById,
@@ -198,4 +259,6 @@ module.exports = {
   getAllHospitals,
   countHospitals,
   deleteHospital,
+  recordFailedLoginAttempt,
+  resetLoginAttempts,
 };
