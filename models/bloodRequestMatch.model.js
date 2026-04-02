@@ -23,7 +23,7 @@ async function getPendingMatchesForDonor(donor_id) {
       ON du.id = d.user_id
     WHERE
       m.donor_id = $1
-      AND m.status = 'pending'
+      AND m.status IN ('pending', 'notified')
     ORDER BY br.created_at DESC
   `;
 
@@ -44,18 +44,75 @@ async function getMatchById(match_id) {
   return rows[0] || null;
 }
 
-async function updateMatchStatus(match_id, status) {
+async function updateMatchStatus(match_id, status, options = {}) {
+  const {
+    response_channel = null,
+    notified_at = undefined,
+    responded_at = undefined,
+  } = options;
+
   const { rows } = await pool.query(
     `
       UPDATE blood_request_matches
-      SET status = $2
+      SET
+        status = $2,
+        response_channel = COALESCE($3, response_channel),
+        notified_at = COALESCE($4, notified_at),
+        responded_at = COALESCE($5, responded_at)
       WHERE id = $1
       RETURNING *
     `,
-    [match_id, status]
+    [match_id, status, response_channel, notified_at, responded_at]
   );
 
   return rows[0] || null;
+}
+
+async function markMatchNotified(match_id) {
+  const { rows } = await pool.query(
+    `
+      UPDATE blood_request_matches
+      SET
+        status = 'notified',
+        notified_at = COALESCE(notified_at, NOW())
+      WHERE id = $1
+        AND status IN ('pending', 'notified')
+      RETURNING *
+    `,
+    [match_id]
+  );
+
+  return rows[0] || null;
+}
+
+async function markExpiredMatchesAsNoResponse(matchIds = []) {
+  if (!Array.isArray(matchIds) || matchIds.length === 0) {
+    return [];
+  }
+
+  const normalizedIds = matchIds
+    .map((id) => Number(id))
+    .filter((id) => Number.isInteger(id) && id > 0);
+
+  if (normalizedIds.length === 0) {
+    return [];
+  }
+
+  const { rows } = await pool.query(
+    `
+      UPDATE blood_request_matches
+      SET
+        status = 'no_response',
+        responded_at = COALESCE(responded_at, NOW()),
+        response_channel = COALESCE(response_channel, 'email')
+      WHERE id = ANY($1::INT[])
+        AND status IN ('pending', 'notified')
+      RETURNING *
+    `,
+    [normalizedIds]
+  );
+
+  return rows;
 }
 
 async function getMatchResponseContext(match_id) {
@@ -177,12 +234,34 @@ async function countMatchesByRequestId(requestId) {
   return rows[0]?.count ?? 0;
 }
 
+async function countAcceptedMatchesByRequestId(requestId) {
+  const normalizedId = Number(requestId);
+  if (!Number.isInteger(normalizedId) || normalizedId <= 0) {
+    return 0;
+  }
+
+  const { rows } = await pool.query(
+    `
+      SELECT COUNT(*)::INT AS count
+      FROM blood_request_matches
+      WHERE request_id = $1
+        AND status = 'accepted'
+    `,
+    [normalizedId]
+  );
+
+  return rows[0]?.count ?? 0;
+}
+
 module.exports = {
   getPendingMatchesForDonor,
   getMatchById,
   updateMatchStatus,
+  markMatchNotified,
+  markExpiredMatchesAsNoResponse,
   getMatchResponseContext,
   getResponseSummaryByRequestIds,
   getMatchesByRequestId,
   countMatchesByRequestId,
+  countAcceptedMatchesByRequestId,
 };

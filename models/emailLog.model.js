@@ -12,6 +12,7 @@ async function createEmailLog({
   sent_at = null,
   attempt_count = 0,
   last_attempt_at = null,
+  next_retry_at = null,
 }) {
   const { rows } = await pool.query(
     `
@@ -26,9 +27,10 @@ async function createEmailLog({
         payload,
         sent_at,
         attempt_count,
-        last_attempt_at
+        last_attempt_at,
+        next_retry_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *
     `,
     [
@@ -43,6 +45,7 @@ async function createEmailLog({
       sent_at,
       attempt_count,
       last_attempt_at,
+      next_retry_at,
     ]
   );
 
@@ -59,6 +62,7 @@ async function updateEmailLogById({
   sent_at,
   attempt_count,
   last_attempt_at,
+  next_retry_at,
 }) {
   const { rows } = await pool.query(
     `
@@ -72,6 +76,7 @@ async function updateEmailLogById({
         sent_at = COALESCE($7, sent_at),
         attempt_count = COALESCE($8, attempt_count),
         last_attempt_at = COALESCE($9, last_attempt_at),
+        next_retry_at = COALESCE($10, next_retry_at),
         updated_at = NOW()
       WHERE id = $1
       RETURNING *
@@ -86,6 +91,7 @@ async function updateEmailLogById({
       sent_at,
       attempt_count,
       last_attempt_at,
+      next_retry_at,
     ]
   );
 

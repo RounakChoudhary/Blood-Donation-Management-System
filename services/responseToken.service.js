@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 
 const ResponseToken = require("../models/responseToken.model");
+const Match = require("../models/bloodRequestMatch.model");
 
 const RESPONSE_TOKEN_SECRET = process.env.RESPONSE_TOKEN_SECRET || process.env.JWT_SECRET;
 const RESPONSE_TOKEN_TTL_HOURS = 2;
@@ -99,9 +100,31 @@ async function consumeTokensForMatch({ match_id, donor_id }) {
   await ResponseToken.invalidateActiveTokens({ match_id, donor_id });
 }
 
+async function expirePendingResponses() {
+  const expiredTokens = await ResponseToken.getExpiredUnusedTokens();
+  if (!expiredTokens.length) {
+    return {
+      expired_token_count: 0,
+      updated_match_count: 0,
+      request_ids: [],
+    };
+  }
+
+  const matchIds = [...new Set(expiredTokens.map((token) => Number(token.match_id)))];
+  const updatedMatches = await Match.markExpiredMatchesAsNoResponse(matchIds);
+  await ResponseToken.markExpiredTokensUsed(expiredTokens.map((token) => token.id));
+
+  return {
+    expired_token_count: expiredTokens.length,
+    updated_match_count: updatedMatches.length,
+    request_ids: [...new Set(updatedMatches.map((match) => Number(match.request_id)))],
+  };
+}
+
 module.exports = {
   issueResponseToken,
   verifyResponseToken,
   consumeResponseToken,
   consumeTokensForMatch,
+  expirePendingResponses,
 };

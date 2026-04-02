@@ -1,6 +1,7 @@
 const BloodRequest = require("../models/bloodRequest.model");
 const BloodRequestMatch = require("../models/bloodRequestMatch.model");
 const { sendEmailForMatches } = require("./notification.service");
+const responseTokenService = require("./responseToken.service");
 
 const RADIUS_STEP_METERS = [3000, 6000, 9000];
 const DEFAULT_SEARCH_RADIUS_METERS = 3000;
@@ -51,11 +52,16 @@ function buildEmptyResponseSummary() {
 }
 
 async function attachResponseSummaries(requests = []) {
+  const expiredResponseResult = await responseTokenService.expirePendingResponses();
+
   if (!Array.isArray(requests) || requests.length === 0) {
     return [];
   }
 
   const ids = requests.map((request) => Number(request.id)).filter((id) => Number.isInteger(id));
+  if (expiredResponseResult.request_ids.length > 0) {
+    ids.push(...expiredResponseResult.request_ids);
+  }
   const summaries = await BloodRequestMatch.getResponseSummaryByRequestIds(ids);
   const summaryMap = new Map(summaries.map((item) => [Number(item.request_id), item]));
 
@@ -211,6 +217,8 @@ async function rematchRequest({ hospital_id, request_id, radius_meters, limit = 
     limit: Number(limit),
   });
 
+  const notifications = await sendEmailForMatches(matches, request);
+
   const totalMatchCount = await BloodRequestMatch.countMatchesByRequestId(request_id);
   const nextStatus = matches.length > 0 || totalMatchCount > 0
     ? "active"
@@ -228,6 +236,7 @@ async function rematchRequest({ hospital_id, request_id, radius_meters, limit = 
     request_id,
     new_matches_count: matches.length,
     matches,
+    notification_attempts: notifications.length,
   };
 }
 

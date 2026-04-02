@@ -63,9 +63,52 @@ async function markTokenUsed(id) {
   return rows[0] || null;
 }
 
+async function getExpiredUnusedTokens() {
+  const { rows } = await pool.query(
+    `
+      SELECT *
+      FROM response_tokens
+      WHERE used = FALSE
+        AND expires_at <= NOW()
+      ORDER BY expires_at ASC
+    `
+  );
+
+  return rows;
+}
+
+async function markExpiredTokensUsed(tokenIds = []) {
+  if (!Array.isArray(tokenIds) || tokenIds.length === 0) {
+    return [];
+  }
+
+  const normalizedIds = tokenIds
+    .map((id) => Number(id))
+    .filter((id) => Number.isInteger(id) && id > 0);
+
+  if (normalizedIds.length === 0) {
+    return [];
+  }
+
+  const { rows } = await pool.query(
+    `
+      UPDATE response_tokens
+      SET used = TRUE
+      WHERE id = ANY($1::INT[])
+        AND used = FALSE
+      RETURNING *
+    `,
+    [normalizedIds]
+  );
+
+  return rows;
+}
+
 module.exports = {
   invalidateActiveTokens,
   createResponseToken,
   getActiveTokenByHash,
   markTokenUsed,
+  getExpiredUnusedTokens,
+  markExpiredTokensUsed,
 };

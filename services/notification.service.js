@@ -2,6 +2,7 @@ const Notification = require("../models/notification.model");
 const User = require("../models/user.model");
 const EmailLog = require("../models/emailLog.model");
 const Hospital = require("../models/hospital.model");
+const Match = require("../models/bloodRequestMatch.model");
 const responseTokenService = require("./responseToken.service");
 const { sendEmergencyEmail } = require("./email.service");
 
@@ -22,6 +23,11 @@ function buildRetryPayload({ attempt, nextRetryInMs = null, raw = null, error = 
     raw,
     error,
   };
+}
+
+function buildNextRetryDate(nextRetryInMs) {
+  if (!nextRetryInMs) return null;
+  return new Date(Date.now() + nextRetryInMs);
 }
 
 async function sendWithRetry({
@@ -83,7 +89,10 @@ async function sendWithRetry({
         sent_at: new Date(),
         attempt_count: attempt,
         last_attempt_at,
+        next_retry_at: null,
       });
+
+      await Match.markMatchNotified(match.id);
 
       return {
         ok: true,
@@ -114,6 +123,7 @@ async function sendWithRetry({
         payload: retryPayload,
         attempt_count: attempt,
         last_attempt_at,
+        next_retry_at: buildNextRetryDate(nextRetryInMs),
       });
 
       if (!nextRetryInMs) {
@@ -132,6 +142,8 @@ async function sendWithRetry({
 }
 
 async function sendEmailForMatches(matches, request) {
+  await responseTokenService.expirePendingResponses();
+
   if (!matches || matches.length === 0) {
     return [];
   }
@@ -163,6 +175,7 @@ async function sendEmailForMatches(matches, request) {
         status: "failed",
         error_message: "User email missing",
         payload: { donor_id: match.donor_id },
+        next_retry_at: null,
       });
 
       results.push({
@@ -188,6 +201,7 @@ async function sendEmailForMatches(matches, request) {
       status: "pending",
       payload: { donor_id: match.donor_id },
       attempt_count: 0,
+      next_retry_at: null,
     });
 
     try {

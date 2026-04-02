@@ -73,6 +73,20 @@ async function updateNotificationById({
   return rows[0] || null;
 }
 
+async function getNotificationsByMatchId(match_id) {
+  const { rows } = await pool.query(
+    `
+      SELECT *
+      FROM notifications
+      WHERE match_id = $1
+      ORDER BY created_at DESC
+    `,
+    [match_id]
+  );
+
+  return rows;
+}
+
 async function updateNotificationByProviderMessageId({
   provider_message_id,
   status,
@@ -119,4 +133,5 @@ module.exports = {
   updateNotificationById,
   updateNotificationByProviderMessageId,
   getNotificationByProviderMessageId,
+  getNotificationsByMatchId,
 };
