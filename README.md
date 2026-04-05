@@ -11,7 +11,7 @@ Digitizes emergency blood request handling, geospatial donor matching, donation 
 [![Frontend](https://img.shields.io/badge/Frontend-HTML_CSS_JS-yellow?logo=html5)](https://developer.mozilla.org/en-US/docs/Web/HTML)
 [![Auth](https://img.shields.io/badge/Auth-JWT_HS256-orange)](https://jwt.io/)
 [![Notifications](https://img.shields.io/badge/Notifications-Nodemailer_SMTP-red?logo=gmail)](https://nodemailer.com/)
-[![Sprint](https://img.shields.io/badge/Sprint_3-Complete-brightgreen)]()
+[![Sprint](https://img.shields.io/badge/Sprint_4-In_Progress-yellow)]()
 [![Status](https://img.shields.io/badge/Backend-Core_Operational-success)]()
 
 </div>
@@ -266,11 +266,12 @@ Routes are mounted directly from `index.js`. Protected routes require `Authoriza
 
 ## Sprint Progress
 
-> **Plan Period:** February 5, 2026 - April 30, 2026  
-> **Plan Source:** `Sprint_Plan_V2 (1).pdf` (provided by team)  
-> **Progress Snapshot Updated:** March 31, 2026
+> **Plan Period:** February 5, 2026 - April 14, 2026  
+> **Plan Source:** `Sprint_Plan_V3_Updated.pdf`  
+> **Progress Snapshot Updated:** April 3, 2026
 >
 > Checklist legend: `[x]` implemented in this repository, `[ ]` not fully implemented yet.
+> Demo note: Sprint 5 is compressed to align with the project demonstration on April 14, 2026.
 
 ### Sprint 1 - Project Setup, Registration Modules and Authentication
 *February 5, 2026 - February 16, 2026*
@@ -279,14 +280,14 @@ Routes are mounted directly from `index.js`. Protected routes require `Authoriza
 - [x] User authentication system (FR 4.1.4)
 - [x] Donor registration module (FR 4.1.1)
 - [x] Hospital registration module (FR 4.1.3)
-- [x] Blood bank registration module (FR 4.1.2) - backend registration exists; full frontend/admin flow still pending
+- [x] Blood bank registration module (FR 4.1.2) - backend registration is implemented; verification UI is still partial
 - [x] Password reset functionality (FR 4.1.5)
 
 ### Sprint 2 - Emergency Request Workflow, Matching Engine and Notifications
 *February 23, 2026 - March 9, 2026*
 
 - [x] Role-based auth hardening (FR 4.1.4 RBAC)
-- [x] Donor eligibility and profile APIs (FR 4.4.1, FR 4.4.2) - eligibility/onboarding available, full profile update flow not complete
+- [x] Donor eligibility and profile APIs (FR 4.4.1, FR 4.4.2)
 - [x] Emergency request creation and hospital workflow (FR 4.2.1)
 - [x] Donor request response workflow (FR 4.2.4)
 - [x] Notification system via SMTP email (FR 4.2.3, FR 4.7.1)
@@ -301,24 +302,24 @@ Routes are mounted directly from `index.js`. Protected routes require `Authoriza
 - [x] Camp proposal submission (FR 4.3.1)
 - [x] Camp approval workflow (FR 4.3.2)
 - [x] Camp discovery by donors (FR 4.3.3)
-- [x] Location services integration (FR 4.6.1, FR 4.6.2) - donor proximity exists; dedicated nearby blood bank API pending
+- [x] Location services integration (FR 4.6.1, FR 4.6.2) - nearby donor and nearby blood bank APIs are implemented
 - [ ] Dynamic radius expansion carry-over (FR 4.2.5)
-- [ ] Blood bank emergency notification carry-over (FR 4.2.6)
+- [x] Blood bank emergency notification carry-over (FR 4.2.6)
 - [x] Password reset carry-over (FR 4.1.5)
 
 ### Sprint 4 - Frontend Dashboards, Admin Panel and Blood Request Processing
 *March 23, 2026 - April 6, 2026*
 
 - [ ] Donor and hospital dashboards (FR 3.1, FR 4.4.2) - UI exists, but donor dashboard and parts of hospital flow still mocked
-- [ ] Request status view (FR 4.5.1, FR 4.5.2) - hospital request status summary is implemented; full regular-request + complete UI flow pending
-- [x] Donation history and profile management (FR 4.4.2, FR 4.4.3)
+- [ ] Request status view (FR 4.5.1, FR 4.5.2) - emergency status APIs exist; full regular-request status flow and frontend coverage are still partial
+- [x] Donation history and profile management (FR 4.4.2, FR 4.4.3) - backend endpoints are implemented
 - [ ] Admin dashboard (FR 4.9.1-4.9.4) - backend admin APIs exist; frontend integration is partial
 - [x] Hospital and blood bank verification backend (FR 4.9.1, FR 4.9.2)
 - [x] User management backend (FR 4.9.3)
 - [x] System configuration backend (FR 4.9.4)
 
 ### Sprint 5 - Reports, Polish, Testing and Security Compliance
-*April 7, 2026 - April 30, 2026*
+*April 7, 2026 - April 14, 2026*
 
 - [ ] Report generation module (FR 4.8.1, FR 4.8.2)
 - [x] Password reset (FR 4.1.5)
@@ -341,12 +342,12 @@ Routes are mounted directly from `index.js`. Protected routes require `Authoriza
 - FR 4.2.3 Send Emergency Notifications
 - FR 4.2.4 Donor Response Handling
 - FR 4.2.6 Notify Nearby Blood Banks
+- FR 4.3.1 Submit Blood Camp Proposal
 - FR 4.3.2 Approve or Reject Camp Proposal
 - FR 4.3.3 Camp Discovery by Donors
 - FR 4.4.1 Check Donation Eligibility
 - FR 4.4.2 Update Donor Profile
 - FR 4.4.3 View Donation History
-- FR 4.5.1 Submit Regular Blood Request
 - FR 4.6.1 Find Nearby Blood Banks
 - FR 4.6.2 Find Nearby Donors
 - FR 4.7.1 Send Notification
@@ -358,7 +359,7 @@ Routes are mounted directly from `index.js`. Protected routes require `Authoriza
 2. Partially implemented backend FRs
 
 - FR 4.2.5 Dynamic Radius Expansion
-- FR 4.3.1 Submit Blood Camp Proposal
+- FR 4.5.1 Submit Regular Blood Request
 - FR 4.5.2 Track Request Status
 
 3. Backend FRs still pending
@@ -367,7 +368,7 @@ Routes are mounted directly from `index.js`. Protected routes require `Authoriza
 - FR 4.8.1 Generate Donation Report
 - FR 4.8.2 Generate Emergency Response Report
 
-4. Backend NFRs pending (audit logs, performance constraints, etc.)
+4. Backend NFRs still pending
 
 - Automated performance validation against SRS response-time targets
 - Queue or worker-backed execution for retries and scheduled jobs

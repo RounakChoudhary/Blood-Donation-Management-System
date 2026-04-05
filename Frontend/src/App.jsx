@@ -7,19 +7,46 @@ import HospitalDashboard from './pages/HospitalDashboard';
 import BloodBankDashboard from './pages/BloodBankDashboard';
 import AdminPanel from './pages/AdminPanel';
 import ProfileSettings from './pages/ProfileSettings';
+import { isLoggedIn, getAuthUser } from './services/authService';
+
+// Redirects to /login if user is not authenticated
+function ProtectedRoute({ children }) {
+  if (!isLoggedIn()) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+}
+
+// Redirects to the correct dashboard based on user role
+function RoleRedirect() {
+  const user = getAuthUser();
+  const role = user?.role;
+
+  if (role === 'admin') return <Navigate to="/admin" replace />;
+  if (role === 'hospital') return <Navigate to="/hospital" replace />;
+  return <Navigate to="/donor" replace />;
+}
+
+// Redirects away from login if already logged in
+function GuestRoute({ children }) {
+  if (isLoggedIn()) {
+    return <RoleRedirect />;
+  }
+  return children;
+}
 
 function App() {
   return (
     <Router>
       <Routes>
-        {/* Auth Routes */}
-        <Route path="/login" element={<Auth mode="login" />} />
-        <Route path="/register" element={<Auth mode="register" />} />
+        {/* Auth Routes — only accessible when NOT logged in */}
+        <Route path="/login" element={<GuestRoute><Auth mode="login" /></GuestRoute>} />
+        <Route path="/register" element={<GuestRoute><Auth mode="register" /></GuestRoute>} />
         <Route path="/verify-otp" element={<Auth mode="otp" />} />
 
-        {/* Dashboard Routes with Layout */}
-        <Route path="/" element={<DashboardLayout />}>
-          <Route index element={<Navigate to="/donor" replace />} />
+        {/* Dashboard Routes — only accessible when logged in */}
+        <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+          <Route index element={<RoleRedirect />} />
           <Route path="donor/*" element={<DonorDashboard />} />
           <Route path="hospital/*" element={<HospitalDashboard />} />
           <Route path="blood-bank/*" element={<BloodBankDashboard />} />

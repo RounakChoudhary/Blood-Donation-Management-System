@@ -1,8 +1,11 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Hospital, Activity, ShieldCheck, Droplet } from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, Users, Hospital, Activity, ShieldCheck, Droplet, LogOut } from 'lucide-react';
+import { logout } from '../services/authService';
 
 export default function Sidebar({ isOpen, isMobileOpen, onMobileClose }) {
+  const navigate = useNavigate();
+
   const menuItems = [
     { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
     { name: 'Donors', path: '/donor', icon: <Users size={20} /> },
@@ -10,6 +13,11 @@ export default function Sidebar({ isOpen, isMobileOpen, onMobileClose }) {
     { name: 'Blood Bank', path: '/blood-bank', icon: <Activity size={20} /> },
     { name: 'Admin', path: '/admin', icon: <ShieldCheck size={20} /> },
   ];
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
 
   return (
     <>
@@ -55,6 +63,22 @@ export default function Sidebar({ isOpen, isMobileOpen, onMobileClose }) {
             </NavLink>
           ))}
         </nav>
+
+        {/* Logout Button */}
+        <div className="px-3 py-4 border-t border-slate-200">
+          <button
+            onClick={handleLogout}
+            title={(!isOpen && !isMobileOpen) ? 'Logout' : undefined}
+            className={`flex items-center w-full px-3 py-3 rounded-xl text-slate-500 font-medium hover:bg-red-50 hover:text-red-600 transition-all duration-200 group`}
+          >
+            <div className={`flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-110 ${!isOpen && !isMobileOpen ? 'mx-auto' : ''}`}>
+              <LogOut size={20} />
+            </div>
+            <span className={`whitespace-nowrap transition-all duration-300 overflow-hidden text-sm ${isOpen || isMobileOpen ? 'opacity-100 max-w-[150px] ml-3' : 'opacity-0 max-w-0 ml-0'}`}>
+              Logout
+            </span>
+          </button>
+        </div>
       </aside>
     </>
   );

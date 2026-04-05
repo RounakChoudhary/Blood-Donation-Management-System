@@ -10,4 +10,4 @@ dist
 count_loc.js
 test_blood_bank.js
 test_blood_camps.js
-BDMS_Test_Report.pdf
+*.pdf

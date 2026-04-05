@@ -118,32 +118,33 @@ export const getDonorRequests = async () => {
   const token = getStoredToken();
 
   if (!token) {
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    return FALLBACK_PENDING_REQUESTS;
+    return [];
   }
 
-  const response = await fetch(`${API_BASE_URL}/donor-requests`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  let payloadData = null;
   try {
-    payloadData = await response.json();
-  } catch {
-    payloadData = null;
-  }
+    const response = await fetch(`${API_BASE_URL}/donor-requests`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-  if (!response.ok) {
-    if (response.status === 404) {
+    if (!response.ok) {
       return [];
     }
-    throw new Error(payloadData?.error || `Failed to fetch donor requests (${response.status})`);
-  }
 
-  return mapPendingRequests(payloadData?.requests || []);
+    let payloadData = null;
+    try {
+      payloadData = await response.json();
+    } catch {
+      payloadData = null;
+    }
+
+    return mapPendingRequests(payloadData?.requests || []);
+  } catch (error) {
+    console.warn("Could not load donor requests:", error);
+    return [];
+  }
 };
 
 export const respondToDonorRequest = async (matchId, action) => {
