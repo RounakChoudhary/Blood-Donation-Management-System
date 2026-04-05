@@ -3,42 +3,24 @@ const BloodRequestMatch = require("../models/bloodRequestMatch.model");
 const { sendEmailForMatches, notifyBloodBanksForEmergencyRequest } = require("./notification.service");
 const responseTokenService = require("./responseToken.service");
 const bloodBankService = require("./bloodBank.service");
+const { validateBloodGroup, validatePositiveInteger, validateCoordinates } = require("../utils/validation");
 
 const RADIUS_STEP_METERS = [3000, 6000, 9000];
 const DEFAULT_SEARCH_RADIUS_METERS = 3000;
 const ACTIVE_REQUEST_STATUSES = new Set(["pending", "matching", "active"]);
 const ALLOWED_URGENCY_LEVELS = new Set(["Critical", "Urgent", "Routine"]);
 
-function normalizeBloodGroup(value) {
+function normalizeUrgencyLevel(value) {
   if (!value || typeof value !== "string") return null;
-  return value.trim().toUpperCase();
+  const normalized = value.trim().toLowerCase();
+  const map = { critical: "Critical", urgent: "Urgent", routine: "Routine" };
+  return map[normalized] || null;
 }
 
 function toPositiveInteger(value, fallback) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0) return fallback;
   return parsed;
-}
-
-function normalizeUrgencyLevel(value) {
-  if (!value || typeof value !== "string") return null;
-
-  const normalized = value.trim().toLowerCase();
-  const map = {
-    critical: "Critical",
-    urgent: "Urgent",
-    routine: "Routine",
-  };
-
-  return map[normalized] || null;
-}
-
-function getNextExpansionRadius(currentRadiusMeters) {
-  const current = toPositiveInteger(currentRadiusMeters, 0);
-  for (const step of RADIUS_STEP_METERS) {
-    if (current < step) return step;
-  }
-  return null;
 }
 
 function buildEmptyResponseSummary() {
@@ -84,9 +66,9 @@ async function createEmergencyRequest({
   search_radius_meters = DEFAULT_SEARCH_RADIUS_METERS,
   match_limit = 25,
 }) {
-  const normalizedGroup = normalizeBloodGroup(blood_group);
-  if (!normalizedGroup) {
-    return { ok: false, status: 400, error: "Invalid blood_group" };
+  const bloodGroupValidation = validateBloodGroup(blood_group);
+  if (!bloodGroupValidation.isValid) {
+    return { ok: false, status: 400, error: bloodGroupValidation.error };
   }
 
   const normalizedUrgencyLevel = normalizeUrgencyLevel(urgency_level);
@@ -94,25 +76,21 @@ async function createEmergencyRequest({
     return { ok: false, status: 400, error: "urgency_level must be Critical, Urgent, or Routine" };
   }
 
-  const units = Number(units_required);
-  if (!Number.isInteger(units) || units <= 0) {
-    return { ok: false, status: 400, error: "units_required must be a positive integer" };
+  const unitsValidation = validatePositiveInteger(units_required, "units_required");
+  if (!unitsValidation.isValid) {
+    return { ok: false, status: 400, error: unitsValidation.error };
   }
 
-  if (
-    lon === undefined ||
-    lat === undefined ||
-    Number.isNaN(Number(lon)) ||
-    Number.isNaN(Number(lat))
-  ) {
-    return { ok: false, status: 400, error: "Valid lon and lat are required" };
+  const coordValidation = validateCoordinates(lat, lon);
+  if (!coordValidation.isValid) {
+    return { ok: false, status: 400, error: coordValidation.error };
   }
 
   const radius = toPositiveInteger(search_radius_meters, DEFAULT_SEARCH_RADIUS_METERS);
 
   const existingActiveRequest = await BloodRequest.getActiveBloodRequestByHospitalAndGroup({
     hospital_id,
-    blood_group: normalizedGroup,
+    blood_group: bloodGroupValidation.value,
   });
   if (existingActiveRequest) {
     return {
@@ -124,10 +102,10 @@ async function createEmergencyRequest({
 
   const request = await BloodRequest.createBloodRequest({
     hospital_id,
-    blood_group: normalizedGroup,
-    units_required: units,
-    lon: Number(lon),
-    lat: Number(lat),
+    blood_group: bloodGroupValidation.value,
+    units_required: unitsValidation.value,
+    lon: coordValidation.lon,
+    lat: coordValidation.lat,
     urgency_level: normalizedUrgencyLevel,
     patient_name: patient_name ?? null,
     notes: notes ?? null,

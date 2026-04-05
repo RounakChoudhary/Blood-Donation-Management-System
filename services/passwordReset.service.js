@@ -6,7 +6,7 @@ const User = require("../models/user.model");
 const { sendPasswordResetEmail } = require("./email.service");
 
 const RESET_TOKEN_TTL_MINUTES = Number(process.env.PASSWORD_RESET_TTL_MINUTES || 30);
-const BCRYPT_ROUNDS = 12;
+const BCRYPT_ROUNDS = Number(process.env.BCRYPT_ROUNDS || 12);
 
 function buildRawToken() {
   return crypto.randomBytes(32).toString("hex");
