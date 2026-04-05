@@ -1,18 +1,19 @@
 const pool = require("./db");
 
-async function createHospital({ name, phone, address = null, lon, lat }) {
+async function createHospital({ name, phone, email, address = null, lon, lat }) {
   const query = `
-    INSERT INTO hospitals (name, phone, address, location, onboarding_status)
+    INSERT INTO hospitals (name, phone, email, address, location, onboarding_status)
     VALUES (
       $1,
       $2,
       $3,
-      ST_SetSRID(ST_MakePoint($4, $5), 4326)::geography,
+      $4,
+      ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography,
       'pending'
     )
-    RETURNING id, name, phone, address, onboarding_status, created_at
+    RETURNING id, name, phone, email, address, onboarding_status, created_at
   `;
-  const values = [name, phone, address, lon, lat];
+  const values = [name, phone, email, address, lon, lat];
   const { rows } = await pool.query(query, values);
   return rows[0];
 }

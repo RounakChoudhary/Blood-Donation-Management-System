@@ -9,8 +9,8 @@ function isLocked(lockedUntil) {
   return Boolean(lockedUntil && new Date(lockedUntil).getTime() > Date.now());
 }
 
-async function registerHospital({ name, phone, address, lon, lat }) {
-  if (!name || !phone) {
+async function registerHospital({ name, phone, email, address, lon, lat }) {
+  if (!name || !phone || !email) {
     return { ok: false, status: 400, error: "Missing fields" };
   }
 
@@ -27,10 +27,16 @@ async function registerHospital({ name, phone, address, lon, lat }) {
   if (existingPhone) {
     return { ok: false, status: 409, error: "phone already registered" };
   }
+  
+  const existingEmail = await Hospital.getHospitalByEmail(email);
+  if (existingEmail) {
+    return { ok: false, status: 409, error: "email already registered" };
+  }
 
   const hospital = await Hospital.createHospital({
     name,
     phone,
+    email,
     address: address ?? null,
     lon: Number(lon),
     lat: Number(lat),

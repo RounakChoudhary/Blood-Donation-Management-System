@@ -4,22 +4,50 @@ import Card from '../components/Card';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import Select from '../components/Select';
-import { User, Mail, Lock, KeyRound, Droplet, Phone } from 'lucide-react';
-import { login, register, verifyOtp } from '../services/authService';
+import { User, Mail, Lock, KeyRound, Droplet, Phone, MapPin, Map } from 'lucide-react';
+import { login, register, verifyOtp, registerHospital, loginHospital, registerBloodBank } from '../services/authService';
 
 export default function Auth({ mode = 'login' }) {
   const navigate = useNavigate();
-  const [role, setRole] = useState('donor');
+  const [role, setRole] = useState('donor'); 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
+  
+  // Hospital-specific states
+  const [address, setAddress] = useState('');
+  const [lat, setLat] = useState('28.6139'); 
+  const [lon, setLon] = useState('77.2090');
+
+  // Blood Bank specific states
+  const [licenseNumber, setLicenseNumber] = useState('');
+  const [contactPerson, setContactPerson] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
+  const roleOptions = mode === 'register' 
+    ? [
+        { label: 'Donor / User', value: 'donor' },
+        { label: 'Hospital', value: 'hospital' },
+        { label: 'Blood Bank', value: 'bloodbank' }
+      ]
+    : [
+        { label: 'Donor / Admin', value: 'donor' },
+        { label: 'Hospital', value: 'hospital' },
+        { label: 'Blood Bank (Not Supported)', value: 'bloodbank' }
+      ];
+
   const handleLogin = async () => {
+    
+    if (role === 'bloodbank') {
+      setError('Blood Banks cannot log in under the current system configuration. Wait for Chunk 3 discussions.');
+      return;
+    }
+
     if (!email || !password) {
       setError('Please enter both email and password.');
       return;
@@ -29,8 +57,14 @@ export default function Auth({ mode = 'login' }) {
     setError(null);
 
     try {
-      const data = await login(email, password);
-      const userRole = data.user?.role;
+      let userRole;
+      if (role === 'hospital') {
+        const data = await loginHospital(email, password);
+        userRole = 'hospital';
+      } else {
+        const data = await login(email, password);
+        userRole = data.user?.role;
+      }
 
       if (userRole === 'admin') {
         navigate('/admin', { replace: true });
@@ -47,6 +81,60 @@ export default function Auth({ mode = 'login' }) {
   };
 
   const handleRegister = async () => {
+    if (role === 'bloodbank') {
+      if (!name || !licenseNumber || !contactPerson || !phone || !address || !lat || !lon) {
+        setError('Please fill in all blood bank fields.');
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+
+      try {
+        const data = await registerBloodBank({ 
+          name, 
+          license_number: licenseNumber, 
+          contact_person: contactPerson, 
+          contact_phone: phone, 
+          address, 
+          lon, lat 
+        });
+        setSuccess(data.message || 'Blood Bank registered successfully! Please wait for Admin approval.');
+        setTimeout(() => {
+          navigate('/login', { replace: true });
+        }, 2500);
+      } catch (err) {
+        setError(err.message || 'Blood Bank registration failed.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    if (role === 'hospital') {
+      if (!name || !phone || !email || !address || !lat || !lon) {
+        setError('Please fill in all hospital fields.');
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+
+      try {
+        const data = await registerHospital({ name, phone, email, address, lon, lat });
+        setSuccess(data.message || 'Hospital registered successfully! Please wait for Admin approval.');
+        setTimeout(() => {
+          navigate('/login', { replace: true });
+        }, 2500);
+      } catch (err) {
+        setError(err.message || 'Hospital registration failed.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Default Donor Registration
     if (!name || !email || !password || !phone) {
       setError('Please fill in all fields.');
       return;
@@ -59,7 +147,6 @@ export default function Auth({ mode = 'login' }) {
     try {
       const data = await register({ full_name: name, email, password, phone });
       setSuccess(data.message || 'Registration successful! Check your email for the OTP.');
-      // Navigate to OTP page after short delay so user sees the success message
       setTimeout(() => {
         navigate('/verify-otp', { replace: true });
       }, 1500);
@@ -137,27 +224,99 @@ export default function Auth({ mode = 'login' }) {
         )}
 
         <form className="space-y-4" onSubmit={handleSubmit}>
+
+          {(mode === 'login' || mode === 'register') && (
+            <Select 
+              label="Account Type"
+              options={roleOptions}
+              value={role}
+              onChange={(e) => {
+                setRole(e.target.value);
+                setError(null); // Clear errors on role switch
+              }}
+            />
+          )}
+
           {mode === 'register' && (
             <>
-              <Input
-                label="Full Name"
-                placeholder="John Doe"
-                icon={<User size={18} />}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <Input
-                label="Phone Number"
-                type="tel"
-                placeholder="9876543210"
-                icon={<Phone size={18} />}
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
+              {role === 'donor' && (
+                <Input
+                  label="Full Name"
+                  placeholder="John Doe"
+                  icon={<User size={18} />}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              )}
+              {(role === 'hospital' || role === 'bloodbank') && (
+                <Input
+                  label={role === 'hospital' ? "Hospital Name" : "Blood Bank Name"}
+                  placeholder={role === 'hospital' ? "City General Hospital" : "LifeFlow Blood Bank"}
+                  icon={<User size={18} />}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              )}
+              {role === 'bloodbank' && (
+                <>
+                  <Input
+                    label="License Number"
+                    placeholder="BLD-2023-XYZ"
+                    icon={<KeyRound size={18} />}
+                    value={licenseNumber}
+                    onChange={(e) => setLicenseNumber(e.target.value)}
+                  />
+                  <Input
+                    label="Contact Person"
+                    placeholder="Dr. Sarah Smith"
+                    icon={<User size={18} />}
+                    value={contactPerson}
+                    onChange={(e) => setContactPerson(e.target.value)}
+                  />
+                </>
+              )}
+              {(role === 'donor' || role === 'hospital' || role === 'bloodbank') && (
+                <Input
+                  label="Contact Phone"
+                  type="tel"
+                  placeholder="9876543210"
+                  icon={<Phone size={18} />}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              )}
+              {(role === 'hospital' || role === 'bloodbank') && (
+                <>
+                  <Input
+                    label="Full Address"
+                    placeholder="123 Care Street, Medical District"
+                    icon={<MapPin size={18} />}
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                  />
+                  <div className="flex gap-4">
+                    <Input
+                      label="Latitude"
+                      placeholder="28.6139"
+                      icon={<Map size={18} />}
+                      value={lat}
+                      onChange={(e) => setLat(e.target.value)}
+                    />
+                    <Input
+                      label="Longitude"
+                      placeholder="77.2090"
+                      icon={<Map size={18} />}
+                      value={lon}
+                      onChange={(e) => setLon(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
             </>
           )}
 
-          {(mode === 'login' || mode === 'register' || mode === 'otp') && (
+          {/* Email applies to Login (both), Register (donor and hospital), and OTP */}
+          {((mode === 'login') || (mode === 'register' && (role === 'donor' || role === 'hospital')) || mode === 'otp') && (
             <Input
               label="Email Address"
               type="email"
@@ -179,7 +338,7 @@ export default function Auth({ mode = 'login' }) {
             />
           )}
 
-          {mode === 'register' && (
+          {mode === 'register' && role === 'donor' && (
             <Input
               label="Create Password"
               type="password"
@@ -202,7 +361,7 @@ export default function Auth({ mode = 'login' }) {
             />
           )}
 
-          {mode === 'login' && (
+          {mode === 'login' && role !== 'bloodbank' && (
             <div className="flex justify-end">
               <a href="#" className="text-xs font-bold text-primary hover:underline">Forgot Password?</a>
             </div>
@@ -212,7 +371,7 @@ export default function Auth({ mode = 'login' }) {
             {loading ? 'Please wait...' : (
               <>
                 {mode === 'login' && 'Sign In'}
-                {mode === 'register' && 'Create Account'}
+                {mode === 'register' && 'Register'}
                 {mode === 'otp' && 'Verify Code'}
               </>
             )}

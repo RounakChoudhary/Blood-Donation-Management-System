@@ -74,3 +74,59 @@ export const verifyOtp = async (email, otp) => {
 
   return data; // { message, user }
 };
+
+export const registerHospital = async ({ name, phone, email, address, lon, lat }) => {
+  const response = await fetch(`${API_BASE_URL}/hospitals/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, phone, email, address, lon, lat }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Hospital registration failed");
+  }
+
+  return data; // { message, hospital }
+};
+
+export const loginHospital = async (email, password) => {
+  const response = await fetch(`${API_BASE_URL}/hospitals/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Hospital login failed");
+  }
+
+  if (data.token) localStorage.setItem("token", data.token);
+  // Unify the stored object shape so our App router understands 'role'
+  if (data.hospital) {
+    localStorage.setItem("user", JSON.stringify({ 
+      id: data.hospital.id, 
+      email: data.hospital.email, 
+      role: 'hospital', 
+      name: data.hospital.name 
+    }));
+  }
+
+  return data;
+};
+
+export const registerBloodBank = async ({ name, license_number, address, lon, lat, contact_person, contact_phone }) => {
+  const response = await fetch(`${API_BASE_URL}/blood-banks/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, license_number, address, lon, lat, contact_person, contact_phone }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Blood bank registration failed");
+  }
+
+  return data;
+};
