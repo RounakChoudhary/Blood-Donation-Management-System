@@ -8,6 +8,7 @@ async function createBloodBank({
   lat,
   contact_person,
   contact_phone,
+  email = null,
   operating_hours = null,
   facilities = null,
 }) {
@@ -19,6 +20,7 @@ async function createBloodBank({
       location,
       contact_person,
       contact_phone,
+      email,
       operating_hours,
       facilities,
       onboarding_status
@@ -32,6 +34,7 @@ async function createBloodBank({
       $7,
       $8,
       $9,
+      $10,
       'pending'
     )
     RETURNING
@@ -41,6 +44,7 @@ async function createBloodBank({
       address,
       contact_person,
       contact_phone,
+      email,
       operating_hours,
       facilities,
       onboarding_status,
@@ -55,6 +59,7 @@ async function createBloodBank({
     lat,
     contact_person,
     contact_phone,
+    email,
     operating_hours,
     facilities,
   ];
@@ -210,13 +215,93 @@ async function deleteBloodBank(bloodBankId) {
   return rows[0] || null;
 }
 
+async function getBloodBankByEmail(email) {
+  const { rows } = await pool.query(
+    `
+      SELECT
+        id, name, license_number, address, email, password_hash,
+        onboarding_status, verified_at,
+        failed_login_attempts, last_failed_login_at, locked_until,
+        created_at
+      FROM blood_banks
+      WHERE email = $1 AND is_deleted = false
+    `,
+    [email]
+  );
+  return rows[0] || null;
+}
+
+async function setBloodBankAuth({ bloodBankId, email, password_hash }) {
+  const { rows } = await pool.query(
+    `
+      UPDATE blood_banks
+      SET email = $1, password_hash = $2
+      WHERE id = $3
+        AND onboarding_status = 'verified'
+        AND is_deleted = false
+      RETURNING id, name, email, onboarding_status
+    `,
+    [email, password_hash, bloodBankId]
+  );
+  return rows[0] || null;
+}
+
+async function recordFailedLoginAttempt(bloodBankId) {
+  const { rows } = await pool.query(
+    `
+      UPDATE blood_banks
+      SET
+        failed_login_attempts = CASE
+          WHEN last_failed_login_at IS NULL
+            OR last_failed_login_at < NOW() - INTERVAL '15 minutes'
+            THEN 1
+          ELSE failed_login_attempts + 1
+        END,
+        last_failed_login_at = NOW(),
+        locked_until = CASE
+          WHEN (
+            CASE
+              WHEN last_failed_login_at IS NULL
+                OR last_failed_login_at < NOW() - INTERVAL '15 minutes'
+                THEN 1
+              ELSE failed_login_attempts + 1
+            END
+          ) >= 5
+            THEN NOW() + INTERVAL '15 minutes'
+          ELSE locked_until
+        END
+      WHERE id = $1 AND is_deleted = false
+      RETURNING id, failed_login_attempts, last_failed_login_at, locked_until
+    `,
+    [bloodBankId]
+  );
+  return rows[0] || null;
+}
+
+async function resetLoginAttempts(bloodBankId) {
+  const { rows } = await pool.query(
+    `
+      UPDATE blood_banks
+      SET failed_login_attempts = 0, last_failed_login_at = NULL, locked_until = NULL
+      WHERE id = $1 AND is_deleted = false
+      RETURNING id
+    `,
+    [bloodBankId]
+  );
+  return rows[0] || null;
+}
+
 module.exports = {
   createBloodBank,
   getBloodBankById,
+  getBloodBankByEmail,
   getBloodBankByLicenseNumber,
   findNearbyBloodBanks,
   getAllBloodBanks,
   updateBloodBankStatus,
+  setBloodBankAuth,
   countBloodBanks,
   deleteBloodBank,
+  recordFailedLoginAttempt,
+  resetLoginAttempts,
 };

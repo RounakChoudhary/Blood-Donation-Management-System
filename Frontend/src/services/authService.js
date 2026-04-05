@@ -116,16 +116,41 @@ export const loginHospital = async (email, password) => {
   return data;
 };
 
-export const registerBloodBank = async ({ name, license_number, address, lon, lat, contact_person, contact_phone }) => {
+export const registerBloodBank = async ({ name, license_number, address, lon, lat, contact_person, contact_phone, email }) => {
   const response = await fetch(`${API_BASE_URL}/blood-banks/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, license_number, address, lon, lat, contact_person, contact_phone }),
+    body: JSON.stringify({ name, license_number, address, lon, lat, contact_person, contact_phone, email }),
   });
 
   const data = await response.json();
   if (!response.ok) {
     throw new Error(data.error || "Blood bank registration failed");
+  }
+
+  return data;
+};
+
+export const loginBloodBank = async (email, password) => {
+  const response = await fetch(`${API_BASE_URL}/blood-banks/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Blood bank login failed");
+  }
+
+  if (data.token) localStorage.setItem("token", data.token);
+  if (data.bloodBank) {
+    localStorage.setItem("user", JSON.stringify({
+      id: data.bloodBank.id,
+      email: data.bloodBank.email,
+      role: 'bloodbank',
+      name: data.bloodBank.name
+    }));
   }
 
   return data;

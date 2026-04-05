@@ -5,7 +5,7 @@ import Input from '../components/Input';
 import Button from '../components/Button';
 import Select from '../components/Select';
 import { User, Mail, Lock, KeyRound, Droplet, Phone, MapPin, Map } from 'lucide-react';
-import { login, register, verifyOtp, registerHospital, loginHospital, registerBloodBank } from '../services/authService';
+import { login, register, verifyOtp, registerHospital, loginHospital, registerBloodBank, loginBloodBank } from '../services/authService';
 
 export default function Auth({ mode = 'login' }) {
   const navigate = useNavigate();
@@ -38,16 +38,11 @@ export default function Auth({ mode = 'login' }) {
     : [
         { label: 'Donor / Admin', value: 'donor' },
         { label: 'Hospital', value: 'hospital' },
-        { label: 'Blood Bank (Not Supported)', value: 'bloodbank' }
+        { label: 'Blood Bank', value: 'bloodbank' }
       ];
 
   const handleLogin = async () => {
     
-    if (role === 'bloodbank') {
-      setError('Blood Banks cannot log in under the current system configuration. Wait for Chunk 3 discussions.');
-      return;
-    }
-
     if (!email || !password) {
       setError('Please enter both email and password.');
       return;
@@ -61,6 +56,9 @@ export default function Auth({ mode = 'login' }) {
       if (role === 'hospital') {
         const data = await loginHospital(email, password);
         userRole = 'hospital';
+      } else if (role === 'bloodbank') {
+        const data = await loginBloodBank(email, password);
+        userRole = 'bloodbank';
       } else {
         const data = await login(email, password);
         userRole = data.user?.role;
@@ -70,6 +68,8 @@ export default function Auth({ mode = 'login' }) {
         navigate('/admin', { replace: true });
       } else if (userRole === 'hospital') {
         navigate('/hospital', { replace: true });
+      } else if (userRole === 'bloodbank') {
+        navigate('/blood-bank', { replace: true });
       } else {
         navigate('/donor', { replace: true });
       }
@@ -96,6 +96,7 @@ export default function Auth({ mode = 'login' }) {
           license_number: licenseNumber, 
           contact_person: contactPerson, 
           contact_phone: phone, 
+          email,
           address, 
           lon, lat 
         });
@@ -315,8 +316,8 @@ export default function Auth({ mode = 'login' }) {
             </>
           )}
 
-          {/* Email applies to Login (both), Register (donor and hospital), and OTP */}
-          {((mode === 'login') || (mode === 'register' && (role === 'donor' || role === 'hospital')) || mode === 'otp') && (
+          {/* Email applies to Login (all roles), Register (donor, hospital, and blood bank), and OTP */}
+          {((mode === 'login') || (mode === 'register' && (role === 'donor' || role === 'hospital' || role === 'bloodbank')) || mode === 'otp') && (
             <Input
               label="Email Address"
               type="email"
@@ -361,7 +362,7 @@ export default function Auth({ mode = 'login' }) {
             />
           )}
 
-          {mode === 'login' && role !== 'bloodbank' && (
+          {mode === 'login' && (
             <div className="flex justify-end">
               <a href="#" className="text-xs font-bold text-primary hover:underline">Forgot Password?</a>
             </div>
