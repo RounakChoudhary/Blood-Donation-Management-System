@@ -3,9 +3,10 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/user.model");
 const otpService = require("../services/otp.service");
 const passwordResetService = require("../services/passwordReset.service");
+const { validateEmail, validatePhone, validatePassword, validateCoordinates } = require("../utils/validation");
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const BCRYPT_ROUNDS = 12;
+const BCRYPT_ROUNDS = Number(process.env.BCRYPT_ROUNDS || 12);
 
 function isLocked(lockedUntil) {
   return Boolean(lockedUntil && new Date(lockedUntil).getTime() > Date.now());
@@ -30,18 +31,46 @@ async function register(req, res) {
   try {
     const { full_name, email, password, phone, lon, lat } = req.body;
 
-    if (!full_name || !email || !password || !phone) {
-      return res.status(400).json({ error: "Missing fields" });
+    // Validate required fields
+    if (!full_name || typeof full_name !== 'string' || full_name.trim().length < 2) {
+      return res.status(400).json({ error: "Full name is required and must be at least 2 characters" });
+    }
+
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      return res.status(400).json({ error: emailValidation.error });
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({ error: passwordValidation.error });
+    }
+
+    const phoneValidation = validatePhone(phone);
+    if (!phoneValidation.isValid) {
+      return res.status(400).json({ error: phoneValidation.error });
+    }
+
+    // Validate coordinates if provided
+    let validatedLat = null;
+    let validatedLon = null;
+    if (lon !== undefined && lat !== undefined) {
+      const coordValidation = validateCoordinates(lat, lon);
+      if (!coordValidation.isValid) {
+        return res.status(400).json({ error: coordValidation.error });
+      }
+      validatedLat = coordValidation.lat;
+      validatedLon = coordValidation.lon;
     }
 
     const conflicts = [];
 
-    const existingEmail = await User.getUserByEmail(email);
+    const existingEmail = await User.getUserByEmail(emailValidation.value);
     if (existingEmail) {
       conflicts.push("email");
     }
 
-    const existingPhone = await User.getUserByPhone(phone);
+    const existingPhone = await User.getUserByPhone(phoneValidation.value);
     if (existingPhone) {
       conflicts.push("phone");
     }
@@ -52,15 +81,15 @@ async function register(req, res) {
       });
     }
 
-    const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    const password_hash = await bcrypt.hash(passwordValidation.value, BCRYPT_ROUNDS);
 
     const user = await User.createUser({
-      full_name,
-      email,
+      full_name: full_name.trim(),
+      email: emailValidation.value,
       password_hash,
-      phone,
-      lon: lon ?? null,
-      lat: lat ?? null,
+      phone: phoneValidation.value,
+      lon: validatedLon,
+      lat: validatedLat,
       role: "user",
     });
 
@@ -89,42 +118,49 @@ async function login(req, res) {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: "Missing fields" });
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      return res.status(400).json({ error: emailValidation.error });
     }
 
-    const user = await User.getUserByEmail(email);
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({ error: passwordValidation.error });
+    }
+
+    const user = await User.getUserByEmail(emailValidation.value);
     if (!user) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
     if (isLocked(user.locked_until)) {
-      return res.status(423).json({ error: "Account is locked. Try again later." });
+      return res.status(423).json({ error: "Account is locked due to too many failed login attempts" });
     }
 
-    if (!user.email_verified || !user.is_active) {
-      return res.status(403).json({ error: "Account is not activated. Verify OTP first." });
-    }
-
-    const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) {
-      await User.recordFailedLoginAttempt(user.id);
+    const passwordMatches = await bcrypt.compare(passwordValidation.value, user.password_hash);
+    if (!passwordMatches) {
+      // Increment failed attempts (assuming User model handles this)
+      await User.incrementFailedLoginAttempts(user.id);
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    await User.resetLoginAttempts(user.id);
+    // Reset failed attempts on successful login
+    await User.resetFailedLoginAttempts(user.id);
+
+    if (!user.email_verified || !user.is_active || user.access_status !== "active") {
+      return res.status(403).json({ error: "Account not verified or inactive" });
+    }
 
     const token = signToken(user);
 
-    return res.status(200).json({
+    return res.json({
+      message: "Login successful",
       token,
       user: {
         id: user.id,
         full_name: user.full_name,
         email: user.email,
-        phone: user.phone,
         role: user.role,
-        created_at: user.created_at,
       },
     });
   } catch (err) {
