@@ -7,11 +7,12 @@ const {
   forgotPassword,
   resetPassword,
 } = require("../controllers/auth.controller");
+const { otpLimiter, loginLimiter } = require("../middleware/rateLimit.middleware");
 
-router.post("/register", register);
-router.post("/login", login);
-router.post("/verify-otp", verifyOtp);
-router.post("/forgot-password", forgotPassword);
-router.post("/reset-password", resetPassword);
+router.post("/register", otpLimiter, register); // Rate limit OTP-related
+router.post("/login", loginLimiter, login);
+router.post("/verify-otp", otpLimiter, verifyOtp); // Also rate limit verify
+router.post("/forgot-password", otpLimiter, forgotPassword);
+router.post("/reset-password", loginLimiter, resetPassword); // Similar to login
 
 module.exports = router;
