@@ -7,7 +7,7 @@ const { sendOtpEmail } = require("./email.service");
 
 const OTP_PURPOSE = "email_verification";
 const OTP_TTL_MINUTES = Number(process.env.OTP_TTL_MINUTES || 10);
-const BCRYPT_ROUNDS = 12;
+const BCRYPT_ROUNDS = Number(process.env.BCRYPT_ROUNDS || 12);
 
 function generateOtpCode() {
   return crypto.randomInt(0, 1000000).toString().padStart(6, "0");
