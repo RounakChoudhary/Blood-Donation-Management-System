@@ -47,14 +47,40 @@ function getStoredToken() {
   return null;
 }
 
-function mapDonorProfileToDashboard(donor = {}) {
+function mapDonorProfileToDashboard(donor = {}, historyData = []) {
   const daysRemaining = Number(donor.days_remaining || 0);
   const isCooldown = Boolean(donor.cooldown_active);
+
+  // Calculate generic profile completion percentage based on stored fields
+  // A donor record merged with User provides these fields: full_name, email, phone, blood_group, date_of_birth, address, lon, lat, emergency_contact_name, emergency_contact_phone
+  const profileFields = ['full_name', 'email', 'phone', 'blood_group', 'date_of_birth', 'address', 'lon', 'lat', 'emergency_contact_name', 'emergency_contact_phone'];
+  let filledFields = 0;
+  profileFields.forEach(field => {
+    if (donor[field] !== null && donor[field] !== undefined && donor[field] !== '') {
+      filledFields++;
+    }
+  });
+  const profileCompletion = Math.round((filledFields / profileFields.length) * 100) || 0;
+
+  const totalDonations = historyData.length;
+  const livesImpacted = totalDonations * 3;
+
+  const history = historyData.map((item, index) => ({
+    id: item.id || index + 1,
+    date: formatDateLabel(item.donation_date || item.created_at),
+    location: item.hospital_name || "Unknown Location",
+    bloodGroup: item.blood_group || donor.blood_group || "Unknown",
+    status: "Fulfilled",
+  }));
 
   return {
     ...FALLBACK_DONOR_DASHBOARD,
     daysRemaining,
     isCooldown,
+    profileCompletion,
+    totalDonations,
+    livesImpacted,
+    history: history.length > 0 ? history : [],
   };
 }
 
@@ -94,19 +120,33 @@ export const getDonorDashboard = async () => {
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/donors/me`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const [profileRes, historyRes] = await Promise.all([
+      fetch(`${API_BASE_URL}/donors/me`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      fetch(`${API_BASE_URL}/donors/history`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      })
+    ]);
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch donor profile (${response.status})`);
+    if (!profileRes.ok) {
+      if (profileRes.status === 404) {
+        return { needsOnboarding: true };
+      }
+      throw new Error(`Failed to fetch donor profile (${profileRes.status})`);
     }
 
-    const payload = await response.json();
-    return mapDonorProfileToDashboard(payload?.donor || {});
+    const payload = await profileRes.json();
+    let historyData = [];
+    
+    if (historyRes.ok) {
+      const historyPayload = await historyRes.json();
+      historyData = historyPayload?.donation_records || [];
+    }
+
+    return mapDonorProfileToDashboard(payload?.donor || {}, historyData);
   } catch (error) {
     console.warn("Falling back to mocked donor dashboard data:", error);
     await new Promise((resolve) => setTimeout(resolve, 600));
@@ -179,4 +219,30 @@ export const respondToDonorRequest = async (matchId, action) => {
   }
 
   return payloadData;
+};
+
+export const becomeVolunteer = async (payload) => {
+  const token = getStoredToken();
+  if (!token) throw new Error("Not authenticated");
+
+  const response = await fetch(`${API_BASE_URL}/donors/become-volunteer`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      blood_group: payload.bloodGroup,
+      age: payload.age,
+      bmi: payload.bmi,
+      last_donated_date: payload.lastDonatedDate || null,
+    }),
+  });
+
+  if (!response.ok) {
+    const errPayload = await response.json().catch(() => ({}));
+    throw new Error(errPayload.error || `Failed to register as volunteer (${response.status})`);
+  }
+
+  return response.json();
 };

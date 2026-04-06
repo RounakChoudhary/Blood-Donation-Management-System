@@ -140,12 +140,12 @@ async function login(req, res) {
     const passwordMatches = await bcrypt.compare(passwordValidation.value, user.password_hash);
     if (!passwordMatches) {
       // Increment failed attempts (assuming User model handles this)
-      await User.incrementFailedLoginAttempts(user.id);
+      await User.recordFailedLoginAttempt(user.id);
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
     // Reset failed attempts on successful login
-    await User.resetFailedLoginAttempts(user.id);
+    await User.resetLoginAttempts(user.id);
 
     if (!user.email_verified || !user.is_active || user.access_status !== "active") {
       return res.status(403).json({ error: "Account not verified or inactive" });

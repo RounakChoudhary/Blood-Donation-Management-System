@@ -3,7 +3,96 @@ import Card from '../components/Card';
 import Badge from '../components/Badge';
 import Button from '../components/Button';
 import { HeartHandshake } from 'lucide-react';
-import { getDonorDashboard, getDonorRequests, respondToDonorRequest } from '../services/donorService';
+import { getDonorDashboard, getDonorRequests, respondToDonorRequest, becomeVolunteer } from '../services/donorService';
+
+function DonorOnboarding({ onComplete }) {
+  const [formData, setFormData] = useState({
+    bloodGroup: 'O+',
+    age: '',
+    bmi: '',
+    lastDonatedDate: ''
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      await becomeVolunteer(formData);
+      onComplete();
+    } catch (err) {
+      setError(err.message);
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-6 mt-8">
+      <div className="text-center space-y-2">
+        <div className="mx-auto w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-4">
+          <HeartHandshake size={32} />
+        </div>
+        <h1 className="text-3xl font-bold tracking-tight text-on-surface">Become a Volunteer Donor</h1>
+        <p className="text-on-surface-variant font-medium">You haven't registered as a donor yet. Complete your profile below to start saving lives today.</p>
+      </div>
+
+      <Card className="p-8">
+        {error && <div className="p-4 mb-6 bg-error-container text-on-error-container rounded-xl text-sm font-semibold">{error}</div>}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Blood Group *</label>
+              <select 
+                className="w-full p-3 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                value={formData.bloodGroup}
+                onChange={e => setFormData({...formData, bloodGroup: e.target.value})}
+                required
+              >
+                {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => (
+                  <option key={bg} value={bg}>{bg}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Age *</label>
+              <input 
+                type="number" min="18" max="65" placeholder="e.g. 28"
+                className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                value={formData.age}
+                onChange={e => setFormData({...formData, age: e.target.value})}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">BMI *</label>
+              <input 
+                type="number" step="0.1" min="18.5" max="30" placeholder="e.g. 22.5"
+                className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                value={formData.bmi}
+                onChange={e => setFormData({...formData, bmi: e.target.value})}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Last Donation Date</label>
+              <input 
+                type="date"
+                className="w-full p-3 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                value={formData.lastDonatedDate}
+                onChange={e => setFormData({...formData, lastDonatedDate: e.target.value})}
+              />
+            </div>
+          </div>
+          <Button type="submit" className="w-full py-4 text-base" disabled={submitting}>
+            {submitting ? "Registering..." : "Register as Volunteer"}
+          </Button>
+        </form>
+      </Card>
+    </div>
+  );
+}
 
 export default function DonorDashboard() {
   const [data, setData] = useState(null);
@@ -74,6 +163,10 @@ export default function DonorDashboard() {
         {error}
       </div>
     );
+  }
+
+  if (data?.needsOnboarding) {
+    return <DonorOnboarding onComplete={() => window.location.reload()} />;
   }
 
   return (

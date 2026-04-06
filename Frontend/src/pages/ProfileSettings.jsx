@@ -10,6 +10,7 @@ export default function ProfileSettings() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -27,10 +28,14 @@ export default function ProfileSettings() {
 
   const handleSave = async () => {
     setIsSubmitting(true);
+    setSuccess(null);
+    setError(null);
     try {
-      await updateProfile(data);
+      const response = await updateProfile(data);
+      setSuccess(response.message || "Profile updated successfully!");
     } catch (err) {
       console.error(err);
+      setError(err.message || "Failed to update profile.");
     } finally {
       setIsSubmitting(false);
     }
@@ -59,13 +64,19 @@ export default function ProfileSettings() {
         <p className="text-sm text-on-surface-variant font-medium mt-1">Manage your personal information and preferences.</p>
       </div>
 
+      {success && (
+        <div className="p-4 bg-green-50 text-green-700 rounded-xl font-medium border border-green-200">
+          {success}
+        </div>
+      )}
+
       <div className="grid md:grid-cols-3 gap-8">
         <div className="md:col-span-1 space-y-6">
           <Card className="flex flex-col items-center text-center p-8">
             <div className="w-24 h-24 rounded-full bg-slate-100 overflow-hidden mb-4 ring-4 ring-slate-50">
-              <img alt="User profile" src={`https://ui-avatars.com/api/?name=${data?.firstName}+${data?.lastName}&background=ffdad6&color=b7131a&size=128`} className="w-full h-full object-cover" />
+              <img alt="User profile" src={`https://ui-avatars.com/api/?name=${encodeURIComponent(data?.fullName || '')}&background=ffdad6&color=b7131a&size=128`} className="w-full h-full object-cover" />
             </div>
-            <h2 className="text-xl font-bold">{data?.firstName} {data?.lastName}</h2>
+            <h2 className="text-xl font-bold">{data?.fullName}</h2>
             <p className="text-sm text-slate-500 mb-4">Donor Level: {data?.donorLevel}</p>
             {data?.isEligible && (
               <Badge variant="success" className="px-6 py-2 text-xs">Eligible to Donate</Badge>
@@ -77,12 +88,11 @@ export default function ProfileSettings() {
           <Card className="space-y-6">
             <h3 className="text-lg font-bold border-b border-slate-100 pb-2">Personal Information</h3>
             <div className="grid grid-cols-2 gap-4">
-              <Input label="First Name" defaultValue={data?.firstName} />
-              <Input label="Last Name" defaultValue={data?.lastName} />
-              <Input label="Blood Group" defaultValue={data?.bloodGroup} disabled className="bg-slate-50 text-slate-500" />
-              <Input label="Phone Number" defaultValue={data?.phoneNumber} />
+              <Input label="Full Name" value={data?.fullName} disabled className="col-span-2 bg-slate-50 text-slate-500" />
+              <Input label="Blood Group" value={data?.bloodGroup} disabled className="bg-slate-50 text-slate-500" />
+              <Input label="Phone Number" value={data?.phoneNumber || ''} onChange={(e) => setData({ ...data, phoneNumber: e.target.value })} />
               <div className="col-span-2">
-                <Input label="Location / City" defaultValue={data?.location} icon={<MapPin size={18} />} />
+                <Input label="Location / City" value={data?.location || ''} onChange={(e) => setData({ ...data, location: e.target.value })} icon={<MapPin size={18} />} />
               </div>
             </div>
             <div className="flex justify-end">
