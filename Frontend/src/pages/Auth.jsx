@@ -16,10 +16,10 @@ export default function Auth({ mode = 'login' }) {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   
-  // Hospital-specific states
+  // Shared location states
   const [address, setAddress] = useState('');
-  const [lat, setLat] = useState('28.6139'); 
-  const [lon, setLon] = useState('77.2090');
+  const [lat, setLat] = useState(''); 
+  const [lon, setLon] = useState('');
 
   // Blood Bank specific states
   const [licenseNumber, setLicenseNumber] = useState('');
@@ -136,8 +136,8 @@ export default function Auth({ mode = 'login' }) {
     }
 
     // Default Donor Registration
-    if (!name || !email || !password || !phone) {
-      setError('Please fill in all fields.');
+    if (!name || !email || !password || !phone || !lat || !lon) {
+      setError('Please fill in all donor fields, including location.');
       return;
     }
 
@@ -146,7 +146,7 @@ export default function Auth({ mode = 'login' }) {
     setSuccess(null);
 
     try {
-      const data = await register({ full_name: name, email, password, phone });
+      const data = await register({ full_name: name, email, password, phone, lon, lat });
       setSuccess(data.message || 'Registration successful! Check your email for the OTP.');
       setTimeout(() => {
         navigate('/verify-otp', { replace: true });
@@ -295,23 +295,30 @@ export default function Auth({ mode = 'login' }) {
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                   />
+                </>
+              )}
+              {(role === 'donor' || role === 'hospital' || role === 'bloodbank') && (
+                <div className="space-y-3">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                    Location Coordinates
+                  </p>
                   <div className="flex gap-4">
                     <Input
                       label="Latitude"
-                      placeholder="28.6139"
+                      placeholder="e.g. 19.0760"
                       icon={<Map size={18} />}
                       value={lat}
                       onChange={(e) => setLat(e.target.value)}
                     />
                     <Input
                       label="Longitude"
-                      placeholder="77.2090"
+                      placeholder="e.g. 72.8777"
                       icon={<Map size={18} />}
                       value={lon}
                       onChange={(e) => setLon(e.target.value)}
                     />
                   </div>
-                </>
+                </div>
               )}
             </>
           )}

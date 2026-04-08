@@ -45,11 +45,11 @@ export const isLoggedIn = () => {
   return !!localStorage.getItem("token");
 };
 
-export const register = async ({ full_name, email, password, phone }) => {
+export const register = async ({ full_name, email, password, phone, lon, lat }) => {
   const response = await fetch(`${API_BASE_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ full_name, email, password, phone }),
+    body: JSON.stringify({ full_name, email, password, phone, lon, lat }),
   });
 
   const data = await response.json();

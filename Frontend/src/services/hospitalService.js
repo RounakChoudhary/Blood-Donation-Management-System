@@ -1,60 +1,5 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
-
-const FALLBACK_HOSPITAL_DASHBOARD = {
-  activeRequests: [
-    {
-      id: 1,
-      group: "O-",
-      hosp: "City General Hospital",
-      info: "4 Units - Required ASAP",
-      statusVariant: "critical",
-      statusLabel: "critical",
-      responseSummary: {
-        total: 12,
-        pending: 6,
-        accepted: 4,
-        declined: 2,
-      },
-      fulfillmentPercent: 33.3,
-    },
-    {
-      id: 2,
-      group: "A+",
-      hosp: "St. Mary Medical",
-      info: "2 Units - Within 24hrs",
-      statusVariant: "pending",
-      statusLabel: "pending",
-      responseSummary: {
-        total: 4,
-        pending: 2,
-        accepted: 1,
-        declined: 1,
-      },
-      fulfillmentPercent: 50,
-    },
-    {
-      id: 3,
-      group: "B-",
-      hosp: "Mercy Clinic",
-      info: "1 Unit - Routine",
-      statusVariant: "matched",
-      statusLabel: "matched",
-      responseSummary: {
-        total: 3,
-        pending: 1,
-        accepted: 2,
-        declined: 0,
-      },
-      fulfillmentPercent: 100,
-    },
-  ],
-  matchedDonors: [
-    { id: 1, name: "John Doe", initials: "JD", distance: "2.3", group: "O-", status: "pending", rawStatus: "pending" },
-    { id: 2, name: "Anna Smith", initials: "AS", distance: "0.8", group: "A+", status: "pending", rawStatus: "pending" },
-    { id: 3, name: "Robert C.", initials: "RC", distance: "4.1", group: "O-", status: "default", rawStatus: "declined" },
-    { id: 4, name: "Elena V.", initials: "EV", distance: "5.5", group: "B-", status: "success", rawStatus: "accepted" },
-  ],
-};
+const ACTIVE_REQUEST_STATUSES = new Set(["pending", "matching", "active", "open", "matched"]);
 
 function getStoredToken() {
   const tokenKeys = ["token", "authToken", "accessToken", "jwt", "hospitalToken"];
@@ -100,7 +45,9 @@ function getInitials(name = "") {
 function mapActiveRequests(requests = []) {
   if (!Array.isArray(requests)) return [];
 
-  return requests.map((request) => {
+  return requests
+    .filter((request) => ACTIVE_REQUEST_STATUSES.has(String(request.status || "").toLowerCase()))
+    .map((request) => {
     const rawStatus = String(request.status || "unknown").toLowerCase();
     const summary = request.response_summary || {};
     const total = Number(summary.total_count || 0);
@@ -158,52 +105,38 @@ export const getHospitalDashboard = async () => {
   const token = getStoredToken();
 
   if (!token) {
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    return {
-      ...FALLBACK_HOSPITAL_DASHBOARD,
-      usingFallback: true,
-    };
+    throw new Error("Hospital auth token not found. Please login again.");
   }
 
+  const response = await fetch(`${API_BASE_URL}/blood-requests/mine`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  let payloadData = null;
   try {
-    const response = await fetch(`${API_BASE_URL}/blood-requests/mine`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch hospital requests (${response.status})`);
-    }
-
-    const payload = await response.json();
-    const activeRequests = mapActiveRequests(payload?.requests || []);
-
-    return {
-      ...FALLBACK_HOSPITAL_DASHBOARD,
-      activeRequests,
-      matchedDonors: [],
-      usingFallback: false,
-    };
-  } catch (error) {
-    console.warn("Falling back to mocked hospital dashboard data:", error);
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    return {
-      ...FALLBACK_HOSPITAL_DASHBOARD,
-      usingFallback: true,
-    };
+    payloadData = await response.json();
+  } catch {
+    payloadData = null;
   }
+
+  if (!response.ok) {
+    throw new Error(payloadData?.error || `Failed to fetch hospital requests (${response.status})`);
+  }
+
+  return {
+    activeRequests: mapActiveRequests(payloadData?.requests || []),
+    matchedDonors: [],
+  };
 };
 
 export const getHospitalRequestDetails = async (requestId) => {
   const token = getStoredToken();
 
   if (!token) {
-    return {
-      matchedDonors: FALLBACK_HOSPITAL_DASHBOARD.matchedDonors,
-      usingFallback: true,
-    };
+    throw new Error("Hospital auth token not found. Please login again.");
   }
 
   const normalizedId = Number(requestId);
@@ -231,7 +164,6 @@ export const getHospitalRequestDetails = async (requestId) => {
 
   return {
     matchedDonors: mapMatchedDonors(payloadData?.request?.matches || []),
-    usingFallback: false,
   };
 };
 

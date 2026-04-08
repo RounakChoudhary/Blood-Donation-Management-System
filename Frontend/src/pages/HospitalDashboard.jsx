@@ -116,6 +116,7 @@ export default function HospitalDashboard() {
   const [rematchError, setRematchError] = useState(null);
   const [requestForm, setRequestForm] = useState(getInitialRequestForm);
   const [recentRegularRequests, setRecentRegularRequests] = useState(readStoredRegularRequests);
+  const acceptedDonors = matchedDonors.filter((donor) => donor.rawStatus === 'accepted');
 
   const loadDashboard = async ({ showLoading = true } = {}) => {
     if (showLoading) {
@@ -128,7 +129,7 @@ export default function HospitalDashboard() {
       setError(null);
     } catch (err) {
       console.error(err);
-      setError("Failed to load hospital data.");
+      setError(err.message || "Failed to load hospital data.");
     } finally {
       if (showLoading) {
         setLoading(false);
@@ -162,13 +163,6 @@ export default function HospitalDashboard() {
     const loadMatchedDonors = async () => {
       if (!data) return;
 
-      if (data.usingFallback) {
-        setMatchedDonors(data.matchedDonors || []);
-        setMatchesError(null);
-        setLoadingMatches(false);
-        return;
-      }
-
       if (!selectedRequestId) {
         setMatchedDonors([]);
         setMatchesError(null);
@@ -187,7 +181,7 @@ export default function HospitalDashboard() {
       } catch (err) {
         console.error(err);
         if (!isCancelled) {
-          setMatchesError("Failed to load matched donors for the selected request.");
+          setMatchesError(err.message || "Failed to load matched donors for the selected request.");
           setMatchedDonors([]);
         }
       } finally {
@@ -289,7 +283,7 @@ export default function HospitalDashboard() {
   };
 
   const handleRematch = async () => {
-    if (!selectedRequestId || !data || data.usingFallback) {
+    if (!selectedRequestId || !data) {
       return;
     }
 
@@ -417,7 +411,7 @@ export default function HospitalDashboard() {
               variant="secondary"
               className="text-xs px-3 py-2 h-auto whitespace-nowrap"
               onClick={handleRematch}
-              disabled={isRematching || loadingMatches || !selectedRequestId || data?.usingFallback}
+              disabled={isRematching || loadingMatches || !selectedRequestId}
             >
               {isRematching ? "Finding..." : "Find More Donors"}
             </Button>
@@ -431,6 +425,40 @@ export default function HospitalDashboard() {
             <p className="text-xs font-semibold text-on-error-container bg-error-container rounded-lg px-3 py-2">
               {rematchError}
             </p>
+          )}
+          {acceptedDonors.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-bold uppercase tracking-widest text-green-700">
+                  Accepted Donor Details
+                </h3>
+                <Badge variant="success">{acceptedDonors.length} accepted</Badge>
+              </div>
+              <div className="grid gap-3">
+                {acceptedDonors.map((donor) => (
+                  <Card key={`accepted-${donor.id}`} className="p-4 border border-green-200 bg-green-50/60">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center font-bold text-green-700">
+                          {donor.initials}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">{donor.name}</p>
+                          <p className="text-xs font-semibold text-slate-500">
+                            {donor.group} donor
+                            {donor.distance ? ` • ${donor.distance} km away` : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-1 text-sm text-slate-700 font-medium">
+                        <p>Status: Accepted</p>
+                        <p>Contact: {donor.phone || 'Phone not available'}</p>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
           )}
           <div className="grid grid-cols-2 gap-4">
             {loadingMatches ? (
@@ -459,9 +487,9 @@ export default function HospitalDashboard() {
                           Contact: {donor.phone}
                         </p>
                       )}
-                      <Button variant="secondary" className="w-full text-xs py-2 px-3 h-auto leading-tight" disabled>
+                      <div className="w-full text-xs py-2 px-3 rounded-lg border-2 border-slate-200 text-slate-600 font-semibold text-center">
                         Status: {donor.rawStatus}
-                      </Button>
+                      </div>
                     </div>
                 </Card>
               ))
