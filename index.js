@@ -40,6 +40,7 @@ const donorRequestRoutes = require("./routes/donorRequest.routes");
 const hospitalAuthRoutes = require("./routes/hospitalAuth.routes");
 const bloodRequestRoutes = require("./routes/bloodRequest.routes");
 const bloodBankAuthRoutes = require("./routes/bloodBankAuth.routes");
+const bloodBankRoutes = require("./routes/bloodBank.routes");
 const bloodCampRoutes = require("./routes/bloodCamp.routes");
 const adminRoutes = require("./routes/admin.routes");
 
@@ -50,6 +51,7 @@ app.use("/donor-requests", donorRequestRoutes);
 app.use("/hospitals", hospitalAuthRoutes);
 app.use("/blood-requests", bloodRequestRoutes);
 app.use("/blood-banks", bloodBankAuthRoutes);
+app.use("/blood-banks", bloodBankRoutes);
 app.use("/camps", bloodCampRoutes);
 app.use("/admin", adminRoutes);
 

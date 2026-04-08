@@ -46,14 +46,14 @@ async function createRegularRequest({
     notes: notes ?? null,
   });
 
-  const nearbyBloodBanks = await bloodBankService.findNearbyBloodBanks({
+  const nearbyBloodBanksResult = await bloodBankService.findNearbyBloodBanks({
     hospital_id,
     radius_meters,
   });
 
   const notifications = await notificationService.notifyBloodBanksForRegularRequest({
     request,
-    bloodBanks: nearbyBloodBanks,
+    bloodBanks: nearbyBloodBanksResult.ok ? nearbyBloodBanksResult.blood_banks : [],
   });
 
   const sentCount = notifications.filter((item) => item.ok).length;

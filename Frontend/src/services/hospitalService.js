@@ -7,7 +7,8 @@ const FALLBACK_HOSPITAL_DASHBOARD = {
       group: "O-",
       hosp: "City General Hospital",
       info: "4 Units - Required ASAP",
-      status: "critical",
+      statusVariant: "critical",
+      statusLabel: "critical",
       responseSummary: {
         total: 12,
         pending: 6,
@@ -21,7 +22,8 @@ const FALLBACK_HOSPITAL_DASHBOARD = {
       group: "A+",
       hosp: "St. Mary Medical",
       info: "2 Units - Within 24hrs",
-      status: "pending",
+      statusVariant: "pending",
+      statusLabel: "pending",
       responseSummary: {
         total: 4,
         pending: 2,
@@ -35,7 +37,8 @@ const FALLBACK_HOSPITAL_DASHBOARD = {
       group: "B-",
       hosp: "Mercy Clinic",
       info: "1 Unit - Routine",
-      status: "matched",
+      statusVariant: "matched",
+      statusLabel: "matched",
       responseSummary: {
         total: 3,
         pending: 1,
@@ -67,8 +70,8 @@ function getStoredToken() {
 function toUiRequestStatus(apiStatus) {
   const normalized = String(apiStatus || "").toLowerCase();
 
-  if (normalized === "open") return "pending";
-  if (normalized === "matched") return "matched";
+  if (normalized === "pending" || normalized === "matching" || normalized === "open") return "pending";
+  if (normalized === "active" || normalized === "matched") return "matched";
   if (normalized === "fulfilled") return "success";
   if (normalized === "cancelled") return "default";
   return "default";
@@ -98,12 +101,14 @@ function mapActiveRequests(requests = []) {
   if (!Array.isArray(requests)) return [];
 
   return requests.map((request) => {
+    const rawStatus = String(request.status || "unknown").toLowerCase();
     const summary = request.response_summary || {};
     const total = Number(summary.total_count || 0);
     const accepted = Number(summary.accepted_count || 0);
     const pending = Number(summary.pending_count || 0);
     const declined = Number(summary.declined_count || 0);
     const unitsRequired = Number(request.units_required || 0);
+    const urgencyLevel = request.urgency_level || "Urgent";
     const fulfillmentPercent = unitsRequired > 0
       ? Math.min(100, Number(((accepted / unitsRequired) * 100).toFixed(1)))
       : 0;
@@ -112,8 +117,10 @@ function mapActiveRequests(requests = []) {
       id: request.id,
       group: request.blood_group,
       hosp: `Request #${request.id}`,
-      info: `${request.units_required} Units - ${accepted} accepted - ${pending} pending`,
-      status: toUiRequestStatus(request.status),
+      info: `${request.units_required} Units - Emergency - ${accepted} accepted - ${pending} pending`,
+      statusVariant: toUiRequestStatus(rawStatus),
+      statusLabel: rawStatus,
+      urgencyLevel,
       searchRadiusMeters: Number(request.search_radius_meters || 5000),
       responseSummary: {
         total,
@@ -228,6 +235,15 @@ export const getHospitalRequestDetails = async (requestId) => {
   };
 };
 
+function toOptionalNumber(value) {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
 export const createEmergencyRequest = async (payload) => {
   const token = getStoredToken();
 
@@ -237,10 +253,11 @@ export const createEmergencyRequest = async (payload) => {
 
   const requestBody = {
     blood_group: payload?.blood_group,
-    units_required: Number(payload?.units_required),
-    lon: Number(payload?.lon),
-    lat: Number(payload?.lat),
-    search_radius_meters: Number(payload?.search_radius_meters ?? 5000),
+    urgency_level: "Critical",
+    units_required: toOptionalNumber(payload?.units_required),
+    lon: toOptionalNumber(payload?.lon),
+    lat: toOptionalNumber(payload?.lat),
+    search_radius_meters: toOptionalNumber(payload?.search_radius_meters ?? 3000),
     match_limit: Number(payload?.match_limit ?? 25),
   };
 
@@ -262,6 +279,43 @@ export const createEmergencyRequest = async (payload) => {
 
   if (!response.ok) {
     throw new Error(payloadData?.error || `Failed to create request (${response.status})`);
+  }
+
+  return payloadData;
+};
+
+export const createRegularRequest = async (payload) => {
+  const token = getStoredToken();
+
+  if (!token) {
+    throw new Error("Hospital auth token not found. Please login again.");
+  }
+
+  const requestBody = {
+    blood_group: payload?.blood_group,
+    units_required: toOptionalNumber(payload?.units_required),
+    required_date: payload?.required_date || null,
+    radius_meters: toOptionalNumber(payload?.search_radius_meters ?? 10000),
+  };
+
+  const response = await fetch(`${API_BASE_URL}/blood-banks/regular-requests`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  let payloadData = null;
+  try {
+    payloadData = await response.json();
+  } catch {
+    payloadData = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(payloadData?.error || `Failed to create regular request (${response.status})`);
   }
 
   return payloadData;

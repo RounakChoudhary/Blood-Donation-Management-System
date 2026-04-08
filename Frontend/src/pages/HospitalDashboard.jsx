@@ -5,9 +5,99 @@ import Button from '../components/Button';
 import Modal from '../components/Modal';
 import Input from '../components/Input';
 import { AlertTriangle, MapPin } from 'lucide-react';
-import { getHospitalDashboard, getHospitalRequestDetails, createEmergencyRequest, rematchHospitalRequest } from '../services/hospitalService';
+import { getHospitalDashboard, getHospitalRequestDetails, createEmergencyRequest, createRegularRequest, rematchHospitalRequest } from '../services/hospitalService';
 
 const BLOOD_GROUP_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
+const REQUEST_TYPE_OPTIONS = [
+  { value: 'emergency', label: 'Emergency' },
+  { value: 'regular', label: 'Regular' },
+];
+const REGULAR_REQUEST_STORAGE_KEY = 'hospitalRegularRequests';
+
+function getDefaultRequiredDate() {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return tomorrow.toISOString().slice(0, 10);
+}
+
+function getInitialRequestForm() {
+  return {
+    request_type: 'emergency',
+    blood_group: 'O-',
+    units_required: '1',
+    lon: '',
+    lat: '',
+    required_date: getDefaultRequiredDate(),
+    search_radius_meters: '3000',
+  };
+}
+
+function readStoredRegularRequests() {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(REGULAR_REQUEST_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistRegularRequests(requests) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (!Array.isArray(requests) || requests.length === 0) {
+    window.sessionStorage.removeItem(REGULAR_REQUEST_STORAGE_KEY);
+    return;
+  }
+
+  window.sessionStorage.setItem(
+    REGULAR_REQUEST_STORAGE_KEY,
+    JSON.stringify(requests.slice(0, 6))
+  );
+}
+
+function mapRegularRequestForUi(response) {
+  const request = response?.request || {};
+  return {
+    id: request.id ?? `regular-${Date.now()}`,
+    bloodGroup: request.blood_group || 'N/A',
+    unitsRequired: Number(request.units_required || 0),
+    requiredDate: request.required_date || null,
+    status: String(request.status || 'pending').toLowerCase(),
+    notifiedBloodBanksCount: Number(response?.notified_blood_banks_count || 0),
+    createdAt: request.created_at || new Date().toISOString(),
+  };
+}
+
+function toRegularRequestStatusVariant(status) {
+  const normalized = String(status || '').toLowerCase();
+
+  if (normalized === 'fulfilled') return 'success';
+  if (normalized === 'notified') return 'matched';
+  if (normalized === 'pending') return 'pending';
+  return 'default';
+}
+
+function formatDisplayDate(value) {
+  if (!value) return 'Date pending';
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
 
 export default function HospitalDashboard() {
   const [data, setData] = useState(null);
@@ -24,13 +114,8 @@ export default function HospitalDashboard() {
   const [isRematching, setIsRematching] = useState(false);
   const [rematchMessage, setRematchMessage] = useState(null);
   const [rematchError, setRematchError] = useState(null);
-  const [requestForm, setRequestForm] = useState({
-    blood_group: 'O-',
-    units_required: '1',
-    lon: '',
-    lat: '',
-    search_radius_meters: '5000',
-  });
+  const [requestForm, setRequestForm] = useState(getInitialRequestForm);
+  const [recentRegularRequests, setRecentRegularRequests] = useState(readStoredRegularRequests);
 
   const loadDashboard = async ({ showLoading = true } = {}) => {
     if (showLoading) {
@@ -124,19 +209,80 @@ export default function HospitalDashboard() {
     setRematchError(null);
   }, [selectedRequestId]);
 
+  useEffect(() => {
+    persistRegularRequests(recentRegularRequests);
+  }, [recentRegularRequests]);
+
   const handleRequestSubmission = async () => {
+    const isEmergencyRequest = requestForm.request_type === 'emergency';
+    const unitsRequired = Number(requestForm.units_required);
+    const searchRadius = Number(requestForm.search_radius_meters);
+
+    if (!Number.isInteger(unitsRequired) || unitsRequired <= 0) {
+      setSubmitError("Units required must be a positive whole number.");
+      return;
+    }
+
+    if (!Number.isFinite(searchRadius) || searchRadius <= 0) {
+      setSubmitError("Search radius must be greater than 0.");
+      return;
+    }
+
+    if (isEmergencyRequest) {
+      const longitude = Number(requestForm.lon);
+      const latitude = Number(requestForm.lat);
+
+      if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) {
+        setSubmitError("Please enter valid latitude and longitude values.");
+        return;
+      }
+    }
+
+    if (!isEmergencyRequest && !requestForm.required_date) {
+      setSubmitError("Please select a required date for the regular request.");
+      return;
+    }
+
+    if (!isEmergencyRequest && Number.isNaN(new Date(requestForm.required_date).getTime())) {
+      setSubmitError("Please select a valid required date for the regular request.");
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError(null);
     setSubmitSuccess(null);
     try {
-      const response = await createEmergencyRequest(requestForm);
-      setSubmitSuccess(response?.message || "Emergency request submitted successfully.");
+      const response = isEmergencyRequest
+        ? await createEmergencyRequest(requestForm)
+        : await createRegularRequest(requestForm);
+
+      setSubmitSuccess(
+        response?.message
+          || (isEmergencyRequest
+            ? "Emergency request submitted successfully."
+            : "Regular request submitted successfully.")
+      );
+
+      if (!isEmergencyRequest && response?.request) {
+        const nextRequest = mapRegularRequestForUi(response);
+        setRecentRegularRequests((previousRequests) => {
+          const deduped = previousRequests.filter((item) => item.id !== nextRequest.id);
+          return [nextRequest, ...deduped].slice(0, 6);
+        });
+      }
+
       setModalOpen(false);
+      setRequestForm(getInitialRequestForm());
       setSelectedRequestId(null);
       await loadDashboard({ showLoading: false });
     } catch (err) {
       console.error(err);
-      setSubmitError(err.message || "Failed to submit emergency request.");
+      setSubmitError(
+        err.message
+        || (isEmergencyRequest
+          ? "Failed to submit emergency request."
+          : "Failed to submit regular request.")
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -196,12 +342,17 @@ export default function HospitalDashboard() {
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-on-surface">Emergency Dashboard</h1>
-          <p className="text-sm text-on-surface-variant font-medium mt-1">Manage active blood requirements and donor matching.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-on-surface">Hospital Dashboard</h1>
+          <p className="text-sm text-on-surface-variant font-medium mt-1">Manage emergency donor matching and regular blood-bank requests.</p>
         </div>
-        <Button onClick={() => setModalOpen(true)}>
+        <Button onClick={() => {
+          setSubmitError(null);
+          setSubmitSuccess(null);
+          setRequestForm(getInitialRequestForm());
+          setModalOpen(true);
+        }}>
           <AlertTriangle size={20} />
-          Create Emergency Request
+          Create Request
         </Button>
       </div>
       {submitSuccess && (
@@ -219,11 +370,11 @@ export default function HospitalDashboard() {
               data.activeRequests.map((req) => (
                 <Card
                   key={req.id}
-                  className={`p-5 flex justify-between items-start border-l-4 cursor-pointer transition-all ${selectedRequestId === req.id ? 'ring-2 ring-primary/20' : ''} ${req.status === 'critical' ? 'border-red-600' : req.status === 'pending' ? 'border-amber-400' : 'border-blue-500'}`}
+                  className={`p-5 flex justify-between items-start border-l-4 cursor-pointer transition-all ${selectedRequestId === req.id ? 'ring-2 ring-primary/20' : ''} ${req.statusVariant === 'critical' ? 'border-red-600' : req.statusVariant === 'pending' ? 'border-amber-400' : 'border-blue-500'}`}
                   onClick={() => setSelectedRequestId(req.id)}
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center font-bold text-xl ${req.status === 'critical' ? 'bg-error-container text-on-error-container' : req.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center font-bold text-xl ${req.statusVariant === 'critical' ? 'bg-error-container text-on-error-container' : req.statusVariant === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
                       {req.group}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -246,7 +397,7 @@ export default function HospitalDashboard() {
                       </div>
                     </div>
                   </div>
-                  <Badge variant={req.status}>{req.status}</Badge>
+                  <Badge variant={req.statusVariant}>{req.statusLabel}</Badge>
                 </Card>
               ))
             ) : (
@@ -321,8 +472,75 @@ export default function HospitalDashboard() {
         </div>
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setModalOpen(false)} title="Create Emergency Request" description="Broadcast a critical blood requirement to eligible donors nearby.">
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">Regular Requests</h2>
+            <p className="text-sm text-on-surface-variant font-medium mt-1">
+              Recent regular requests from this browser session. Full synced history will plug in once the shared backend listing API is ready.
+            </p>
+          </div>
+          <Badge variant="default">Session View</Badge>
+        </div>
+
+        <Card className="p-5 space-y-4">
+          {recentRegularRequests.length > 0 ? (
+            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {recentRegularRequests.map((request) => (
+                <div key={request.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Regular Request</p>
+                      <h4 className="text-base font-bold text-slate-900 mt-1">{request.bloodGroup}</h4>
+                    </div>
+                    <Badge variant={toRegularRequestStatusVariant(request.status)}>{request.status}</Badge>
+                  </div>
+                  <div className="space-y-1 text-sm text-slate-600 font-medium">
+                    <p>{request.unitsRequired} unit{request.unitsRequired === 1 ? '' : 's'} requested</p>
+                    <p>Required by {formatDisplayDate(request.requiredDate)}</p>
+                    <p>{request.notifiedBloodBanksCount} blood bank{request.notifiedBloodBanksCount === 1 ? '' : 's'} notified</p>
+                  </div>
+                  <p className="text-[11px] text-slate-500 font-semibold">
+                    Submitted {formatDisplayDate(request.createdAt)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-6 text-center">
+              <p className="text-sm font-semibold text-slate-700">No regular requests in this session yet.</p>
+              <p className="text-sm text-slate-500 mt-2">
+                Use `Create Request` and switch to `Regular` to stage a planned blood-bank request here while the shared history API is still in progress.
+              </p>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setModalOpen(false)}
+        title={requestForm.request_type === 'emergency' ? 'Create Emergency Request' : 'Create Regular Request'}
+        description={requestForm.request_type === 'emergency'
+          ? 'Broadcast an urgent blood requirement to eligible donors nearby.'
+          : 'Notify nearby blood banks about a planned blood requirement.'}
+      >
         <div className="space-y-6">
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2 block">Request Type</label>
+            <div className="grid grid-cols-2 gap-2">
+              {REQUEST_TYPE_OPTIONS.map((option) => (
+                <button
+                  type="button"
+                  key={option.value}
+                  onClick={() => setRequestForm((prev) => ({ ...prev, request_type: option.value }))}
+                  className={`py-3 rounded-lg text-sm font-bold transition-colors ${option.value === requestForm.request_type ? 'border-2 border-primary bg-primary/5 text-primary' : 'border border-surface-container-highest hover:bg-surface-container'}`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div>
             <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2 block">Blood Group Needed</label>
             <div className="grid grid-cols-4 gap-2">
@@ -356,24 +574,36 @@ export default function HospitalDashboard() {
               onChange={(e) => setRequestForm((prev) => ({ ...prev, search_radius_meters: e.target.value }))}
               placeholder="e.g. 5000"
             />
-            <Input
-              label="Longitude"
-              type="number"
-              step="any"
-              icon={<MapPin size={18} />}
-              value={requestForm.lon}
-              onChange={(e) => setRequestForm((prev) => ({ ...prev, lon: e.target.value }))}
-              placeholder="e.g. 72.8777"
-            />
-            <Input
-              label="Latitude"
-              type="number"
-              step="any"
-              icon={<MapPin size={18} />}
-              value={requestForm.lat}
-              onChange={(e) => setRequestForm((prev) => ({ ...prev, lat: e.target.value }))}
-              placeholder="e.g. 19.0760"
-            />
+            {requestForm.request_type === 'regular' && (
+              <Input
+                label="Required Date"
+                type="date"
+                value={requestForm.required_date}
+                onChange={(e) => setRequestForm((prev) => ({ ...prev, required_date: e.target.value }))}
+              />
+            )}
+            {requestForm.request_type === 'emergency' && (
+              <Input
+                label="Longitude"
+                type="number"
+                step="any"
+                icon={<MapPin size={18} />}
+                value={requestForm.lon}
+                onChange={(e) => setRequestForm((prev) => ({ ...prev, lon: e.target.value }))}
+                placeholder="e.g. 72.8777"
+              />
+            )}
+            {requestForm.request_type === 'emergency' && (
+              <Input
+                label="Latitude"
+                type="number"
+                step="any"
+                icon={<MapPin size={18} />}
+                value={requestForm.lat}
+                onChange={(e) => setRequestForm((prev) => ({ ...prev, lat: e.target.value }))}
+                placeholder="e.g. 19.0760"
+              />
+            )}
           </div>
           {submitError && (
             <div className="p-3 rounded-lg bg-error-container text-on-error-container text-sm font-medium">
@@ -381,7 +611,11 @@ export default function HospitalDashboard() {
             </div>
           )}
           <Button className="w-full mt-4" disabled={isSubmitting} onClick={handleRequestSubmission}>
-            {isSubmitting ? "Submitting..." : "Submit Request"}
+            {isSubmitting
+              ? "Submitting..."
+              : requestForm.request_type === 'emergency'
+                ? "Submit Emergency Request"
+                : "Submit Regular Request"}
           </Button>
         </div>
       </Modal>
