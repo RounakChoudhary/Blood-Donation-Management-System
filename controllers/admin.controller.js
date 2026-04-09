@@ -38,7 +38,15 @@ async function approveHospital(req, res) {
     const hospital = await adminService.updateHospitalStatus(id, "verified", req.user);
     if (!hospital) return res.status(404).json({ error: "Hospital not found" });
     
-    return res.json({ message: "Hospital approved successfully", hospital });
+    let message = "Hospital approved successfully";
+    if (hospital?.provisioning?.credentials_emailed) {
+      message += " and login details emailed.";
+    }
+    if (hospital?.provisioning?.warning) {
+      message += ` (${hospital.provisioning.warning})`;
+    }
+    
+    return res.json({ message, hospital });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Server Error" });
@@ -81,7 +89,15 @@ async function verifyBloodBank(req, res) {
     const bloodBank = await adminService.updateBloodBankStatus(id, "verified", req.user);
     if (!bloodBank) return res.status(404).json({ error: "Blood bank not found" });
 
-    return res.json({ message: "Blood bank verified successfully", bloodBank });
+    let message = "Blood bank verified successfully";
+    if (bloodBank?.provisioning?.credentials_emailed) {
+      message += " and login details emailed.";
+    }
+    if (bloodBank?.provisioning?.warning) {
+      message += ` (${bloodBank.provisioning.warning})`;
+    }
+
+    return res.json({ message, bloodBank });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Server Error" });

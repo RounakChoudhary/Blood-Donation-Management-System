@@ -8,17 +8,23 @@ require("./models/db");
 
 app.use(express.json());
 
-// Minimal CORS support for local frontend development.
+// Local-dev friendly CORS support.
+// Explicit origins can be configured via ALLOWED_ORIGINS (comma-separated).
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ||
   "http://localhost:5173,http://127.0.0.1:5173")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+function isAllowedLocalDevOrigin(origin) {
+  if (!origin || typeof origin !== "string") return false;
+  return /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d+)?$/i.test(origin);
+}
+
 app.use((req, res, next) => {
   const origin = req.headers.origin;
 
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+  if (origin && (ALLOWED_ORIGINS.includes(origin) || isAllowedLocalDevOrigin(origin))) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
   }

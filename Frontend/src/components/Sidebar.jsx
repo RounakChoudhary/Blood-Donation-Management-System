@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Hospital, Activity, ShieldCheck, Droplet, LogOut } from 'lucide-react';
+import { LayoutDashboard, ShieldCheck, Droplet, LogOut } from 'lucide-react';
 import { logout } from '../services/authService';
 
 export default function Sidebar({ isOpen, isMobileOpen, onMobileClose }) {
@@ -8,9 +8,6 @@ export default function Sidebar({ isOpen, isMobileOpen, onMobileClose }) {
 
   const menuItems = [
     { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
-    { name: 'Donors', path: '/donor', icon: <Users size={20} /> },
-    { name: 'Hospitals', path: '/hospital', icon: <Hospital size={20} /> },
-    { name: 'Blood Bank', path: '/blood-bank', icon: <Activity size={20} /> },
     { name: 'Admin', path: '/admin', icon: <ShieldCheck size={20} /> },
   ];
 

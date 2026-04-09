@@ -190,6 +190,80 @@ Please contact the hospital through the BDMS workflow.
   };
 }
 
+async function sendHospitalVerificationEmail({
+  to,
+  hospitalName,
+  tempPassword = null,
+}) {
+  const subject = "Hospital verification successful - BDMS access details";
+  const loginUrl = `${APP_BASE_URL.replace(/\/$/, "")}/login`;
+
+  const text = `Hello ${hospitalName || "Hospital Team"},
+
+Your hospital account has been verified successfully.
+
+Login URL: ${loginUrl}
+Account Type: Hospital
+Email: ${to}
+${tempPassword ? `Temporary Password: ${tempPassword}` : "Password: Your previously configured password remains active."}
+
+Please login and update your password as soon as possible.
+If you cannot login, use the admin support channel to reset credentials.
+
+Regards,
+Blood Donation System
+`;
+
+  const info = await transporter.sendMail({
+    from: `"Blood Donation System" <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    text,
+  });
+
+  return {
+    messageId: info.messageId,
+    raw: info,
+  };
+}
+
+async function sendBloodBankVerificationEmail({
+  to,
+  bloodBankName,
+  tempPassword = null,
+}) {
+  const subject = "Blood bank verification successful - BDMS access details";
+  const loginUrl = `${APP_BASE_URL.replace(/\/$/, "")}/login`;
+
+  const text = `Hello ${bloodBankName || "Blood Bank Team"},
+
+Your blood bank account has been verified successfully.
+
+Login URL: ${loginUrl}
+Account Type: Blood Bank
+Email: ${to}
+${tempPassword ? `Temporary Password: ${tempPassword}` : "Password: Your previously configured password remains active."}
+
+Please login and update your password as soon as possible.
+If you cannot login, use the admin support channel to reset credentials.
+
+Regards,
+Blood Donation System
+`;
+
+  const info = await transporter.sendMail({
+    from: `"Blood Donation System" <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    text,
+  });
+
+  return {
+    messageId: info.messageId,
+    raw: info,
+  };
+}
+
 module.exports = {
   sendEmergencyEmail,
   sendHospitalDonorAcceptanceEmail,
@@ -197,4 +271,6 @@ module.exports = {
   sendPasswordResetEmail,
   sendCampStatusEmail,
   sendRegularBloodRequestEmail,
+  sendHospitalVerificationEmail,
+  sendBloodBankVerificationEmail,
 };

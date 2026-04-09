@@ -5,7 +5,12 @@ import Auth from './pages/Auth';
 import DonorDashboard from './pages/DonorDashboard';
 import HospitalDashboard from './pages/HospitalDashboard';
 import BloodBankDashboard from './pages/BloodBankDashboard';
-import AdminPanel from './pages/AdminPanel';
+import AdminLayout from './pages/AdminLayout';
+import AdminOverview from './pages/AdminOverview';
+import AdminUsers from './pages/AdminUsers';
+import AdminHospitals from './pages/AdminHospitals';
+import AdminBloodBanks from './pages/AdminBloodBanks';
+import AdminBloodRequests from './pages/AdminBloodRequests';
 import ProfileSettings from './pages/ProfileSettings';
 import { isLoggedIn, getAuthUser } from './services/authService';
 
@@ -51,7 +56,13 @@ function App() {
           <Route path="donor/*" element={<DonorDashboard />} />
           <Route path="hospital/*" element={<HospitalDashboard />} />
           <Route path="blood-bank/*" element={<BloodBankDashboard />} />
-          <Route path="admin/*" element={<AdminPanel />} />
+          <Route path="admin" element={<AdminLayout />}>
+            <Route index element={<AdminOverview />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="hospitals" element={<AdminHospitals />} />
+            <Route path="blood-banks" element={<AdminBloodBanks />} />
+            <Route path="requests" element={<AdminBloodRequests />} />
+          </Route>
           <Route path="profile" element={<ProfileSettings />} />
         </Route>
       </Routes>

@@ -5,6 +5,118 @@ const bloodBankModel = require("../models/bloodBank.model");
 const bloodRequestModel = require("../models/bloodRequest.model");
 const systemConfigModel = require("../models/systemConfig.model");
 const auditService = require("./audit.service");
+const bcrypt = require("bcrypt");
+const crypto = require("crypto");
+const {
+  sendHospitalVerificationEmail,
+  sendBloodBankVerificationEmail,
+} = require("./email.service");
+
+const BCRYPT_ROUNDS = Number(process.env.BCRYPT_ROUNDS || 12);
+
+function generateTemporaryPassword(length = 12) {
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower = "abcdefghijkmnopqrstuvwxyz";
+  const digits = "23456789";
+  const symbols = "!@#$%^&*";
+  const all = `${upper}${lower}${digits}${symbols}`;
+
+  const required = [
+    upper[crypto.randomInt(0, upper.length)],
+    lower[crypto.randomInt(0, lower.length)],
+    digits[crypto.randomInt(0, digits.length)],
+    symbols[crypto.randomInt(0, symbols.length)],
+  ];
+
+  while (required.length < length) {
+    required.push(all[crypto.randomInt(0, all.length)]);
+  }
+
+  for (let i = required.length - 1; i > 0; i -= 1) {
+    const j = crypto.randomInt(0, i + 1);
+    [required[i], required[j]] = [required[j], required[i]];
+  }
+
+  return required.join("");
+}
+
+async function provisionHospitalLoginAndNotify(hospitalId) {
+  const hospital = await hospitalModel.getHospitalById(hospitalId);
+  if (!hospital) return { warning: "Hospital not found for credential setup" };
+  if (!hospital.email) return { warning: "Hospital has no email configured for credential delivery" };
+
+  const authHospital = await hospitalModel.getHospitalByEmail(hospital.email);
+  const alreadyConfigured = Boolean(authHospital?.password_hash);
+
+  let tempPassword = null;
+  if (!alreadyConfigured) {
+    tempPassword = generateTemporaryPassword();
+    const password_hash = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
+    await hospitalModel.setHospitalAuth({
+      hospitalId: Number(hospitalId),
+      email: hospital.email,
+      password_hash,
+    });
+  }
+
+  try {
+    await sendHospitalVerificationEmail({
+      to: hospital.email,
+      hospitalName: hospital.name,
+      tempPassword,
+    });
+    return {
+      credentials_emailed: true,
+      credentials_generated: !alreadyConfigured,
+      already_configured: alreadyConfigured,
+    };
+  } catch (error) {
+    return {
+      warning: `Hospital verified, but email failed: ${error.message}`,
+      credentials_generated: !alreadyConfigured,
+      already_configured: alreadyConfigured,
+    };
+  }
+}
+
+async function provisionBloodBankLoginAndNotify(bloodBankId) {
+  const bloodBank = await bloodBankModel.getBloodBankById(bloodBankId);
+  if (!bloodBank) return { warning: "Blood bank not found for credential setup" };
+  if (!bloodBank.email) return { warning: "Blood bank has no email configured for credential delivery" };
+
+  const authBloodBank = await bloodBankModel.getBloodBankByEmail(bloodBank.email);
+  const alreadyConfigured = Boolean(authBloodBank?.password_hash);
+
+  let tempPassword = null;
+  if (!alreadyConfigured) {
+    tempPassword = generateTemporaryPassword();
+    const password_hash = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
+    await bloodBankModel.setBloodBankAuth({
+      bloodBankId: Number(bloodBankId),
+      email: bloodBank.email,
+      password_hash,
+    });
+  }
+
+  try {
+    await sendBloodBankVerificationEmail({
+      to: bloodBank.email,
+      bloodBankName: bloodBank.name,
+      tempPassword,
+    });
+    return {
+      credentials_emailed: true,
+      credentials_generated: !alreadyConfigured,
+      already_configured: alreadyConfigured,
+    };
+  } catch (error) {
+    return {
+      warning: `Blood bank verified, but email failed: ${error.message}`,
+      credentials_generated: !alreadyConfigured,
+      already_configured: alreadyConfigured,
+    };
+  }
+}
 
 function _formatPaginatedResponse(result, limit, offset) {
   return {
@@ -119,30 +231,42 @@ async function updateSystemConfig(payload, actor = null) {
 
 async function updateHospitalStatus(hospitalId, status, actor = null) {
   const updated = await hospitalModel.updateHospitalStatus(hospitalId, status);
+  let provisioning = null;
+
+  if (updated && status === "verified") {
+    provisioning = await provisionHospitalLoginAndNotify(hospitalId);
+  }
+
   if (updated) {
     await auditService.logPrivilegedAction({
       actor,
       action: `hospital.${status}`,
       entity: "hospital",
-      metadata: { hospitalId: Number(hospitalId), status },
+      metadata: { hospitalId: Number(hospitalId), status, provisioning },
     });
   }
 
-  return updated;
+  return updated ? { ...updated, provisioning } : null;
 }
 
 async function updateBloodBankStatus(bloodBankId, status, actor = null) {
   const updated = await bloodBankModel.updateBloodBankStatus(bloodBankId, status);
+  let provisioning = null;
+
+  if (updated && status === "verified") {
+    provisioning = await provisionBloodBankLoginAndNotify(bloodBankId);
+  }
+
   if (updated) {
     await auditService.logPrivilegedAction({
       actor,
       action: `blood_bank.${status}`,
       entity: "blood_bank",
-      metadata: { bloodBankId: Number(bloodBankId), status },
+      metadata: { bloodBankId: Number(bloodBankId), status, provisioning },
     });
   }
 
-  return updated;
+  return updated ? { ...updated, provisioning } : null;
 }
 
 async function deleteUser(id, actor = null) {
