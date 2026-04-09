@@ -1,5 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { PlusCircle, Hospital } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Boxes,
+  CalendarClock,
+  Droplets,
+  Hospital,
+  PlusCircle,
+  Phone,
+} from 'lucide-react';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Badge from '../components/Badge';
@@ -8,33 +15,126 @@ import Input from '../components/Input';
 import Select from '../components/Select';
 import { getBloodBankDashboard, updateStock } from '../services/bloodBankService';
 
+const BLOOD_GROUP_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
+const STOCK_ACTION_OPTIONS = [
+  { value: 'add', label: 'Add Units' },
+  { value: 'remove', label: 'Remove Units' },
+  { value: 'expire', label: 'Mark Expired' },
+];
+
+function getDefaultExpiryDate() {
+  const inThirtyDays = new Date();
+  inThirtyDays.setDate(inThirtyDays.getDate() + 30);
+  return inThirtyDays.toISOString().slice(0, 10);
+}
+
+function getInitialStockForm() {
+  return {
+    blood_group: 'O+',
+    action: 'add',
+    quantity: '1',
+    expiry_date: getDefaultExpiryDate(),
+  };
+}
+
+function toIncomingRequestBadge(status) {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'fulfilled') return 'success';
+  if (normalized === 'notified') return 'matched';
+  if (normalized === 'pending') return 'pending';
+  if (normalized === 'cancelled') return 'default';
+  return 'default';
+}
+
 export default function BloodBankDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isModalOpen, setModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+  const [submitSuccess, setSubmitSuccess] = useState(null);
+  const [stockForm, setStockForm] = useState(getInitialStockForm);
 
-  useEffect(() => {
-    getBloodBankDashboard()
-      .then(res => {
-        setData(res);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setError("Failed to load blood bank data.");
-        setLoading(false);
-      });
-  }, []);
+  const loadDashboard = async ({ showLoading = true } = {}) => {
+    if (showLoading) {
+      setLoading(true);
+    }
 
-  const handleStockUpdate = async () => {
-    setIsSubmitting(true);
     try {
-      await updateStock({ action: 'add' });
-      setModalOpen(false);
+      const response = await getBloodBankDashboard();
+      setData(response);
+      setError(null);
     } catch (err) {
       console.error(err);
+      setError(err.message || 'Failed to load blood bank data.');
+    } finally {
+      if (showLoading) {
+        setLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    loadDashboard();
+  }, []);
+
+  const summaryCards = useMemo(() => {
+    const summary = data?.summary || {};
+
+    return [
+      {
+        label: 'Total Units',
+        value: summary.total_units ?? 0,
+        helper: 'Available across all blood groups',
+        icon: <Droplets size={20} />,
+      },
+      {
+        label: 'Low Stock Groups',
+        value: summary.low_stock_groups ?? 0,
+        helper: 'Groups below the attention threshold',
+        icon: <Boxes size={20} />,
+      },
+      {
+        label: 'Incoming Requests',
+        value: summary.incoming_regular_requests ?? 0,
+        helper: 'Regular requests shared by hospitals',
+        icon: <CalendarClock size={20} />,
+      },
+    ];
+  }, [data]);
+
+  const handleStockUpdate = async () => {
+    const quantity = Number(stockForm.quantity);
+
+    if (!stockForm.blood_group) {
+      setSubmitError('Please choose a blood group.');
+      return;
+    }
+
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      setSubmitError('Quantity must be a positive whole number.');
+      return;
+    }
+
+    if (stockForm.action === 'add' && !stockForm.expiry_date) {
+      setSubmitError('Please provide an expiry date when adding stock.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+    setSubmitSuccess(null);
+
+    try {
+      const response = await updateStock(stockForm);
+      setSubmitSuccess(response.message || 'Inventory updated successfully.');
+      setModalOpen(false);
+      setStockForm(getInitialStockForm());
+      await loadDashboard({ showLoading: false });
+    } catch (err) {
+      console.error(err);
+      setSubmitError(err.message || 'Failed to update stock.');
     } finally {
       setIsSubmitting(false);
     }
@@ -60,17 +160,54 @@ export default function BloodBankDashboard() {
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-on-surface">Blood Bank Inventory</h1>
-          <p className="text-sm text-on-surface-variant font-medium mt-1">Manage local stock, update quantities, and track expiry dates.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-on-surface">Blood Bank Dashboard</h1>
+          <p className="text-sm text-on-surface-variant font-medium mt-1">
+            Track live inventory, review hospital requests, and watch nearby bank capacity.
+          </p>
+          {data?.bloodBank?.name && (
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mt-3">
+              {data.bloodBank.name}
+            </p>
+          )}
         </div>
-        <Button onClick={() => setModalOpen(true)}>
+        <Button
+          onClick={() => {
+            setSubmitError(null);
+            setSubmitSuccess(null);
+            setStockForm(getInitialStockForm());
+            setModalOpen(true);
+          }}
+        >
           <PlusCircle size={20} />
           Update Stock
         </Button>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-4">
+      {submitSuccess && (
+        <div className="p-3 rounded-lg bg-green-50 text-green-700 text-sm font-medium">
+          {submitSuccess}
+        </div>
+      )}
+
+      <div className="grid md:grid-cols-3 gap-4">
+        {summaryCards.map((item) => (
+          <Card key={item.label} className="p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">{item.label}</p>
+                <p className="text-3xl font-black tracking-tight text-on-surface mt-3">{item.value}</p>
+                <p className="text-sm text-slate-500 font-medium mt-2">{item.helper}</p>
+              </div>
+              <div className="w-11 h-11 rounded-2xl bg-red-50 text-primary flex items-center justify-center">
+                {item.icon}
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid xl:grid-cols-[1.2fr_0.8fr] gap-8">
+        <div className="space-y-4">
           <h2 className="text-xl font-bold tracking-tight">Current Inventory</h2>
           <Card className="p-0 overflow-hidden">
             <div className="overflow-x-auto">
@@ -83,12 +220,14 @@ export default function BloodBankDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {data?.inventory.length > 0 ? (
+                  {data?.inventory?.length > 0 ? (
                     data.inventory.map((inv) => (
                       <tr key={inv.id} className="text-sm">
-                        <td className={`p-4 font-bold text-lg ${inv.critical ? 'text-primary' : 'text-on-surface'}`}>{inv.type}</td>
+                        <td className={`p-4 font-bold text-lg ${inv.critical ? 'text-primary' : 'text-on-surface'}`}>
+                          {inv.type}
+                        </td>
                         <td className="p-4">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-bold">{inv.count} Units</span>
                             {inv.critical && <Badge variant="critical">Low Stock</Badge>}
                           </div>
@@ -110,43 +249,154 @@ export default function BloodBankDashboard() {
         <div className="space-y-4">
           <h2 className="text-xl font-bold tracking-tight">Nearby Blood Banks</h2>
           <Card className="p-5 flex flex-col gap-4">
-            {data?.nearbyBanks.length > 0 ? (
+            {data?.nearbyBanks?.length > 0 ? (
               data.nearbyBanks.map((bank, index) => (
                 <div key={bank.id} className={`flex ${index !== data.nearbyBanks.length - 1 ? 'border-b border-slate-50 pb-4' : ''}`}>
                   <div className="w-10 h-10 rounded-lg bg-red-50 text-red-600 flex items-center justify-center mr-3">
                     <Hospital size={20} />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-bold">{bank.name}</p>
-                    <p className="text-xs text-slate-400">{bank.distance}</p>
-                    <div className="mt-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                      Stock: {bank.stock.map((s, idx) => (
-                        <React.Fragment key={idx}>
-                          <span className={s.critical ? 'text-primary' : ''}>{s.group} ({s.count})</span>
-                          {idx < bank.stock.length - 1 && ', '}
-                        </React.Fragment>
-                      ))}
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold">{bank.name}</p>
+                        <p className="text-xs text-slate-400 mt-1">{bank.distance}</p>
+                      </div>
+                      {bank.contactPhone && (
+                        <span className="text-[11px] font-semibold text-slate-500">{bank.contactPhone}</span>
+                      )}
                     </div>
+                    <div className="mt-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                      {bank.stock.length > 0 ? (
+                        <>
+                          Stock:{' '}
+                          {bank.stock.map((stockItem, stockIndex) => (
+                            <React.Fragment key={`${bank.id}-${stockItem.group}`}>
+                              <span className={stockItem.critical ? 'text-primary' : ''}>
+                                {stockItem.group} ({stockItem.count})
+                              </span>
+                              {stockIndex < bank.stock.length - 1 && ', '}
+                            </React.Fragment>
+                          ))}
+                        </>
+                      ) : (
+                        'No shared stock yet'
+                      )}
+                    </div>
+                    {bank.address && (
+                      <p className="text-xs text-slate-500 mt-2">{bank.address}</p>
+                    )}
                   </div>
                 </div>
               ))
             ) : (
-              <div className="text-sm text-slate-500 text-center">No nearby banks found.</div>
+              <div className="text-sm text-slate-500 text-center">No nearby verified blood banks found.</div>
             )}
           </Card>
         </div>
       </div>
 
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-xl font-bold tracking-tight">Incoming Regular Requests</h2>
+          <Badge variant="default">{data?.incomingRequests?.length || 0} shown</Badge>
+        </div>
+        <div className="grid lg:grid-cols-2 gap-4">
+          {data?.incomingRequests?.length > 0 ? (
+            data.incomingRequests.map((request) => (
+              <Card key={request.id} className="p-5 space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Request #{request.requestId}</p>
+                    <h3 className="text-lg font-bold text-on-surface mt-1">{request.hospitalName}</h3>
+                    <p className="text-sm text-slate-500 mt-1">{request.hospitalAddress}</p>
+                  </div>
+                  <Badge variant={toIncomingRequestBadge(request.status)}>{request.status}</Badge>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-3 text-sm text-slate-700 font-medium">
+                  <div className="rounded-xl bg-slate-50 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Need</p>
+                    <p>{request.bloodGroup} - {request.unitsRequired} unit{request.unitsRequired === 1 ? '' : 's'}</p>
+                    <p className="text-slate-500 mt-1">Required by {request.requiredDate}</p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Routing</p>
+                    <p>{request.distance}</p>
+                    <p className="text-slate-500 mt-1">Notification: {request.notificationStatus}</p>
+                  </div>
+                </div>
+
+                {request.notes && (
+                  <div className="rounded-xl border border-slate-200 px-4 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Notes</p>
+                    <p className="text-sm text-slate-700">{request.notes}</p>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-slate-500">
+                  <span className="inline-flex items-center gap-2">
+                    <CalendarClock size={14} />
+                    Shared {request.notifiedAt}
+                  </span>
+                  {data?.bloodBank?.contactPhone && (
+                    <span className="inline-flex items-center gap-2">
+                      <Phone size={14} />
+                      Contact: {data.bloodBank.contactPhone}
+                    </span>
+                  )}
+                </div>
+              </Card>
+            ))
+          ) : (
+            <Card className="p-8 lg:col-span-2 text-center">
+              <p className="text-sm font-semibold text-slate-700">No incoming regular requests yet.</p>
+              <p className="text-sm text-slate-500 mt-2">
+                When hospitals create regular blood-bank requests near you, they will show up here.
+              </p>
+            </Card>
+          )}
+        </div>
+      </div>
+
       <Modal isOpen={isModalOpen} onClose={() => setModalOpen(false)} title="Update Stock">
         <div className="space-y-4">
-          <Select label="Blood Group" options={['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-']} />
+          <Select
+            label="Blood Group"
+            options={BLOOD_GROUP_OPTIONS}
+            value={stockForm.blood_group}
+            onChange={(e) => setStockForm((prev) => ({ ...prev, blood_group: e.target.value }))}
+          />
           <div className="grid grid-cols-2 gap-4">
-            <Select label="Action" options={['Add Units', 'Remove Units', 'Mark Expired']} />
-            <Input label="Quantity" type="number" placeholder="0" />
+            <Select
+              label="Action"
+              options={STOCK_ACTION_OPTIONS}
+              value={stockForm.action}
+              onChange={(e) => setStockForm((prev) => ({ ...prev, action: e.target.value }))}
+            />
+            <Input
+              label="Quantity"
+              type="number"
+              min="1"
+              value={stockForm.quantity}
+              onChange={(e) => setStockForm((prev) => ({ ...prev, quantity: e.target.value }))}
+              placeholder="0"
+            />
           </div>
-          <Input label="Expiry Date (for new units)" type="date" />
+          {stockForm.action === 'add' && (
+            <Input
+              label="Expiry Date"
+              type="date"
+              value={stockForm.expiry_date}
+              onChange={(e) => setStockForm((prev) => ({ ...prev, expiry_date: e.target.value }))}
+            />
+          )}
+          {submitError && (
+            <div className="p-3 rounded-lg bg-error-container text-on-error-container text-sm font-medium">
+              {submitError}
+            </div>
+          )}
           <Button className="w-full mt-4" disabled={isSubmitting} onClick={handleStockUpdate}>
-            {isSubmitting ? "Saving..." : "Save Changes"}
+            {isSubmitting ? 'Saving...' : 'Save Changes'}
           </Button>
         </div>
       </Modal>

@@ -191,8 +191,8 @@ async function updateBloodBankStatus(bloodBankId, status) {
     `
       UPDATE blood_banks
       SET 
-        onboarding_status = $2, 
-        verified_at = CASE WHEN $2 = 'verified' THEN NOW() ELSE verified_at END
+        onboarding_status = $2::varchar, 
+        verified_at = CASE WHEN $2::varchar = 'verified' THEN NOW() ELSE verified_at END
       WHERE id = $1
         AND is_deleted = false
       RETURNING id, name, license_number, onboarding_status, verified_at

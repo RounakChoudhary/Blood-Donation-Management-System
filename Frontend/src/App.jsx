@@ -24,6 +24,7 @@ function RoleRedirect() {
 
   if (role === 'admin') return <Navigate to="/admin" replace />;
   if (role === 'hospital') return <Navigate to="/hospital" replace />;
+  if (role === 'bloodbank') return <Navigate to="/blood-bank" replace />;
   return <Navigate to="/donor" replace />;
 }
 
