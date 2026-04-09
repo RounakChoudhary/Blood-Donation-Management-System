@@ -25,6 +25,17 @@ async function getDonationRecordsByDonorId(donor_id) {
   return rows;
 }
 
+async function countDonationRecords() {
+  const { rows } = await pool.query(
+    `
+      SELECT COUNT(*) AS count
+      FROM donation_records
+    `
+  );
+  return parseInt(rows[0].count, 10);
+}
+
 module.exports = {
   getDonationRecordsByDonorId,
+  countDonationRecords,
 };

@@ -3,6 +3,7 @@ const donorModel = require("../models/donor.model");
 const hospitalModel = require("../models/hospital.model");
 const bloodBankModel = require("../models/bloodBank.model");
 const bloodRequestModel = require("../models/bloodRequest.model");
+const donationRecordModel = require("../models/donationRecord.model");
 const systemConfigModel = require("../models/systemConfig.model");
 const auditService = require("./audit.service");
 const bcrypt = require("bcrypt");
@@ -189,6 +190,20 @@ async function getAllBloodRequests(limit = 50, offset = 0, search = "") {
   return _formatPaginatedResponse(result, limit, offset);
 }
 
+async function getReports() {
+  const [totalDonors, totalRequests, totalSuccessfulDonations] = await Promise.all([
+    donorModel.countDonors(),
+    bloodRequestModel.countBloodRequests(),
+    donationRecordModel.countDonationRecords(),
+  ]);
+
+  return {
+    total_donors: totalDonors,
+    total_requests: totalRequests,
+    total_successful_donations: totalSuccessfulDonations,
+  };
+}
+
 async function updateUserRole(userId, role, actor = null) {
   const updated = await userModel.updateUserRole(userId, role);
   if (updated) {
@@ -338,6 +353,7 @@ module.exports = {
   getAllBloodBanks,
   updateBloodBankStatus,
   getAdminStats,
+  getReports,
   getAllBloodRequests,
   updateUserRole,
   updateUserAccessStatus,

@@ -114,6 +114,16 @@ async function getAdminStats(req, res) {
   }
 }
 
+async function getReports(req, res) {
+  try {
+    const reports = await adminService.getReports();
+    return res.json({ reports });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server Error" });
+  }
+}
+
 async function getAllBloodRequests(req, res) {
   try {
     const limit = parseInt(req.query.limit) || 50;
@@ -253,6 +263,7 @@ module.exports = {
   getAllBloodBanks,
   verifyBloodBank,
   getAdminStats,
+  getReports,
   getAllBloodRequests,
   updateUserRole,
   updateUserStatus,
