@@ -207,6 +207,19 @@ async function countBloodBanks() {
   return parseInt(rows[0].count);
 }
 
+async function countBloodBanksByStatus(status) {
+  const { rows } = await pool.query(
+    `
+      SELECT COUNT(*) AS count
+      FROM blood_banks
+      WHERE is_deleted = false
+        AND onboarding_status = $1
+    `,
+    [status]
+  );
+  return parseInt(rows[0].count, 10);
+}
+
 async function deleteBloodBank(bloodBankId) {
   const { rows } = await pool.query(
     'UPDATE blood_banks SET is_deleted = true WHERE id = $1 AND is_deleted = false RETURNING id',
@@ -301,6 +314,7 @@ module.exports = {
   updateBloodBankStatus,
   setBloodBankAuth,
   countBloodBanks,
+  countBloodBanksByStatus,
   deleteBloodBank,
   recordFailedLoginAttempt,
   resetLoginAttempts,

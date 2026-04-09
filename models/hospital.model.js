@@ -191,6 +191,19 @@ async function countHospitals() {
   return parseInt(rows[0].count);
 }
 
+async function countHospitalsByStatus(status) {
+  const { rows } = await pool.query(
+    `
+      SELECT COUNT(*) AS count
+      FROM hospitals
+      WHERE is_deleted = false
+        AND onboarding_status = $1
+    `,
+    [status]
+  );
+  return parseInt(rows[0].count, 10);
+}
+
 async function deleteHospital(hospitalId) {
   const { rows } = await pool.query(
     'UPDATE hospitals SET is_deleted = true WHERE id = $1 AND is_deleted = false RETURNING id',
@@ -261,6 +274,7 @@ module.exports = {
   setHospitalAuth,
   getAllHospitals,
   countHospitals,
+  countHospitalsByStatus,
   deleteHospital,
   recordFailedLoginAttempt,
   resetLoginAttempts,
