@@ -49,6 +49,7 @@ const bloodBankAuthRoutes = require("./routes/bloodBankAuth.routes");
 const bloodBankRoutes = require("./routes/bloodBank.routes");
 const bloodCampRoutes = require("./routes/bloodCamp.routes");
 const adminRoutes = require("./routes/admin.routes");
+const apiRoutes = require("./routes/api.routes");
 
 app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
@@ -60,6 +61,7 @@ app.use("/blood-banks", bloodBankAuthRoutes);
 app.use("/blood-banks", bloodBankRoutes);
 app.use("/camps", bloodCampRoutes);
 app.use("/admin", adminRoutes);
+app.use("/api", apiRoutes);
 
 app.get("/", (req, res) => {
   res.json({ ok: true, message: "Blood Donation Management System API running" });
