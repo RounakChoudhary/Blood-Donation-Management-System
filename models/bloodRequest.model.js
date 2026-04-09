@@ -130,6 +130,74 @@ async function createMatches({
   return rows;
 }
 
+async function findDonorsWithinFixedRadius({
+  requestId,
+  radiusMeters = 10000,
+  limit = 50,
+}) {
+  const req = await pool.query(
+    `SELECT blood_group, ST_X(location::geometry) AS req_lon, ST_Y(location::geometry) AS req_lat
+     FROM blood_requests
+     WHERE id = $1
+       AND is_deleted = false`,
+    [requestId]
+  );
+
+  if (req.rows.length === 0) {
+    return [];
+  }
+
+  const { blood_group: recipientGroup, req_lon: requestLon, req_lat: requestLat } = req.rows[0];
+  const allowed = allowedDonorGroupsRBC(recipientGroup);
+  if (allowed.length === 0) return [];
+
+  const query = `
+    SELECT
+      d.id AS donor_id,
+      u.id AS user_id,
+      u.full_name,
+      u.email,
+      u.phone,
+      d.blood_group,
+      d.last_donation_date,
+      d.deferred_until,
+      COALESCE(d.availability_status, 'available') AS availability_status,
+      d.address,
+      d.emergency_contact_name,
+      d.emergency_contact_phone,
+      ST_X(u.location::geometry) AS lon,
+      ST_Y(u.location::geometry) AS lat,
+      ROUND(
+        6371000 * acos(
+          LEAST(
+            1,
+            cos(radians($2)) * cos(radians(ST_Y(u.location::geometry)))
+            * cos(radians(ST_X(u.location::geometry)) - radians($1))
+            + sin(radians($2)) * sin(radians(ST_Y(u.location::geometry)))
+          )
+        )
+      )::INT AS distance_meters
+    FROM donors d
+    JOIN users u
+      ON u.id = d.user_id
+    WHERE d.blood_group = ANY($3::blood_group_enum[])
+      AND u.location IS NOT NULL
+      AND ST_DWithin(
+        u.location,
+        ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+        $4
+      )
+      AND (d.deferred_until IS NULL OR d.deferred_until <= CURRENT_DATE)
+      AND COALESCE(d.availability_status, 'available') = 'available'
+    ORDER BY distance_meters ASC
+    LIMIT $5;
+  `;
+
+  const values = [requestLon, requestLat, allowed, radiusMeters, limit];
+  const { rows } = await pool.query(query, values);
+  return rows;
+}
+
 async function listRequestsEligibleForAutoExpansion({
   interval_minutes = 5,
   limit = 50,
@@ -309,6 +377,7 @@ module.exports = {
   getBloodRequestById,
   getBloodRequestsByHospitalId,
   createMatches,
+  findDonorsWithinFixedRadius,
   listRequestsEligibleForAutoExpansion,
   getActiveBloodRequestByHospitalAndGroup,
   updateSearchRadius,
