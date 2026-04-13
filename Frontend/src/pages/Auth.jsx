@@ -24,6 +24,9 @@ export default function Auth({ mode = 'login' }) {
   const [address, setAddress] = useState('');
   const [lat, setLat] = useState(''); 
   const [lon, setLon] = useState('');
+  const [hospitalLicenseNumber, setHospitalLicenseNumber] = useState('');
+  const [hospitalEmergencyContactPhone, setHospitalEmergencyContactPhone] = useState('');
+  const [hospitalType, setHospitalType] = useState('Government');
 
   // Blood Bank specific states
   const [licenseNumber, setLicenseNumber] = useState('');
@@ -33,6 +36,11 @@ export default function Auth({ mode = 'login' }) {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const donorBloodGroupOptions = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  const hospitalTypeOptions = [
+    { label: 'Government', value: 'Government' },
+    { label: 'Private', value: 'Private' },
+    { label: 'Trust', value: 'Trust' },
+  ];
 
   const roleOptions = mode === 'register' 
     ? [
@@ -118,7 +126,17 @@ export default function Auth({ mode = 'login' }) {
     }
 
     if (role === 'hospital') {
-      if (!name || !phone || !email || !address || !lat || !lon) {
+      if (
+        !name ||
+        !phone ||
+        !email ||
+        !address ||
+        !hospitalLicenseNumber ||
+        !hospitalEmergencyContactPhone ||
+        !hospitalType ||
+        !lat ||
+        !lon
+      ) {
         setError('Please fill in all hospital fields.');
         return;
       }
@@ -127,7 +145,17 @@ export default function Auth({ mode = 'login' }) {
       setSuccess(null);
 
       try {
-        const data = await registerHospital({ name, phone, email, address, lon, lat });
+        const data = await registerHospital({
+          name,
+          phone,
+          email,
+          address,
+          license_number: hospitalLicenseNumber,
+          emergency_contact_phone: hospitalEmergencyContactPhone,
+          hospital_type: hospitalType,
+          lon,
+          lat,
+        });
         setSuccess(data.message || 'Hospital registered successfully! Please wait for Admin approval.');
         setTimeout(() => {
           navigate('/login', { replace: true });
@@ -301,6 +329,23 @@ export default function Auth({ mode = 'login' }) {
                   onChange={(e) => setName(e.target.value)}
                 />
               )}
+              {role === 'hospital' && (
+                <>
+                  <Input
+                    label="License Number"
+                    placeholder="HSP-2026-001"
+                    icon={<KeyRound size={18} />}
+                    value={hospitalLicenseNumber}
+                    onChange={(e) => setHospitalLicenseNumber(e.target.value)}
+                  />
+                  <Select
+                    label="Hospital Type"
+                    options={hospitalTypeOptions}
+                    value={hospitalType}
+                    onChange={(e) => setHospitalType(e.target.value)}
+                  />
+                </>
+              )}
               {role === 'bloodbank' && (
                 <>
                   <Input
@@ -358,6 +403,16 @@ export default function Auth({ mode = 'login' }) {
                     onChange={(e) => setEmergencyContactPhone(e.target.value)}
                   />
                 </>
+              )}
+              {role === 'hospital' && (
+                <Input
+                  label="Emergency Contact Phone"
+                  type="tel"
+                  placeholder="9876543211"
+                  icon={<Phone size={18} />}
+                  value={hospitalEmergencyContactPhone}
+                  onChange={(e) => setHospitalEmergencyContactPhone(e.target.value)}
+                />
               )}
               {(role === 'donor' || role === 'hospital' || role === 'bloodbank') && (
                 <div className="space-y-3">

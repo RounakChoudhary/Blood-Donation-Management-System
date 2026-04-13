@@ -99,11 +99,31 @@ export const verifyOtp = async (email, otp) => {
   return data; // { message, user }
 };
 
-export const registerHospital = async ({ name, phone, email, address, lon, lat }) => {
+export const registerHospital = async ({
+  name,
+  phone,
+  email,
+  address,
+  license_number,
+  emergency_contact_phone,
+  hospital_type,
+  lon,
+  lat,
+}) => {
   const response = await fetch(`${API_BASE_URL}/hospitals/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, phone, email, address, lon, lat }),
+    body: JSON.stringify({
+      name,
+      phone,
+      email,
+      address,
+      license_number,
+      emergency_contact_phone,
+      hospital_type,
+      lon,
+      lat,
+    }),
   });
 
   const data = await response.json();
