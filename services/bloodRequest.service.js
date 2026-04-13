@@ -1,5 +1,6 @@
 const BloodRequest = require("../models/bloodRequest.model");
 const BloodRequestMatch = require("../models/bloodRequestMatch.model");
+const systemConfigModel = require("../models/systemConfig.model");
 const { sendEmailForMatches, notifyBloodBanksForEmergencyRequest } = require("./notification.service");
 const responseTokenService = require("./responseToken.service");
 const bloodBankService = require("./bloodBank.service");
@@ -9,6 +10,15 @@ const RADIUS_STEP_METERS = [3000, 6000, 9000];
 const DEFAULT_SEARCH_RADIUS_METERS = 3000;
 const ACTIVE_REQUEST_STATUSES = new Set(["pending", "matching", "active"]);
 const ALLOWED_URGENCY_LEVELS = new Set(["Critical", "Urgent", "Routine"]);
+
+async function getRuntimeMatchingConfig() {
+  const config = await systemConfigModel.getSystemConfig();
+
+  return {
+    matching_radius: toPositiveInteger(config?.matching_radius, DEFAULT_SEARCH_RADIUS_METERS),
+    max_donors_per_request: toPositiveInteger(config?.max_donors_per_request, 25),
+  };
+}
 
 function normalizeUrgencyLevel(value) {
   if (!value || typeof value !== "string") return null;
@@ -66,6 +76,7 @@ async function createEmergencyRequest({
   search_radius_meters = DEFAULT_SEARCH_RADIUS_METERS,
   match_limit = 25,
 }) {
+  const runtimeConfig = await getRuntimeMatchingConfig();
   const bloodGroupValidation = validateBloodGroup(blood_group);
   if (!bloodGroupValidation.isValid) {
     return { ok: false, status: 400, error: bloodGroupValidation.error };
@@ -86,7 +97,8 @@ async function createEmergencyRequest({
     return { ok: false, status: 400, error: coordValidation.error };
   }
 
-  const radius = toPositiveInteger(search_radius_meters, DEFAULT_SEARCH_RADIUS_METERS);
+  const radius = toPositiveInteger(search_radius_meters, runtimeConfig.matching_radius);
+  const normalizedMatchLimit = toPositiveInteger(match_limit, runtimeConfig.max_donors_per_request);
 
   const existingActiveRequest = await BloodRequest.getActiveBloodRequestByHospitalAndGroup({
     hospital_id,
@@ -121,7 +133,7 @@ async function createEmergencyRequest({
   const matches = await BloodRequest.createMatches({
     request_id: request.id,
     radius_meters: radius,
-    limit: Number(match_limit),
+    limit: normalizedMatchLimit,
   });
 
   const notificationResults = await sendEmailForMatches(matches, request);
@@ -179,6 +191,7 @@ async function getRequestForHospital({ request_id, hospital_id }) {
 }
 
 async function rematchRequest({ hospital_id, request_id, radius_meters, limit = 25 }) {
+  const runtimeConfig = await getRuntimeMatchingConfig();
   const requestResult = await getRequestForHospital({ request_id, hospital_id });
   if (!requestResult.ok) {
     return requestResult;
@@ -203,9 +216,9 @@ async function rematchRequest({ hospital_id, request_id, radius_meters, limit = 
     request_id,
     radius_meters: toPositiveInteger(
       radius_meters,
-      toPositiveInteger(request.search_radius_meters, DEFAULT_SEARCH_RADIUS_METERS)
+      toPositiveInteger(request.search_radius_meters, runtimeConfig.matching_radius)
     ),
-    limit: Number(limit),
+    limit: toPositiveInteger(limit, runtimeConfig.max_donors_per_request),
   });
 
   const notifications = await sendEmailForMatches(matches, request);
@@ -251,9 +264,10 @@ async function runAutoRadiusExpansionBatch({
   request_limit = 50,
   match_limit = 25,
 } = {}) {
+  const runtimeConfig = await getRuntimeMatchingConfig();
   const intervalMinutes = toPositiveInteger(interval_minutes, 5);
   const requestLimit = toPositiveInteger(request_limit, 50);
-  const matchLimit = toPositiveInteger(match_limit, 25);
+  const matchLimit = toPositiveInteger(match_limit, runtimeConfig.max_donors_per_request);
 
   const eligibleRequests = await BloodRequest.listRequestsEligibleForAutoExpansion({
     interval_minutes: intervalMinutes,

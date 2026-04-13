@@ -1,12 +1,13 @@
 const Donor = require("../models/donor.model");
 const User = require("../models/user.model");
 const DonationRecord = require("../models/donationRecord.model");
+const systemConfigModel = require("../models/systemConfig.model");
 
 const MIN_AGE = 18;
 const MAX_AGE = 65;
 const MIN_BMI = 18.5;
 const MAX_BMI = 30;
-const COOLDOWN_DAYS = 120;
+const DEFAULT_COOLDOWN_DAYS = 120;
 const ALLOWED_BLOOD_GROUPS = new Set([
   "A+",
   "A-",
@@ -59,10 +60,10 @@ function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function calculateDeferredUntil(last_donation_date) {
+function calculateDeferredUntil(last_donation_date, cooldownDays) {
   if (!last_donation_date) return null;
   const d = new Date(last_donation_date);
-  d.setUTCDate(d.getUTCDate() + COOLDOWN_DAYS);
+  d.setUTCDate(d.getUTCDate() + cooldownDays);
   return d.toISOString().slice(0, 10);
 }
 
@@ -114,6 +115,12 @@ function mergeProfile(user, donor) {
 }
 
 async function becomeVolunteer({ user_id, blood_group, age, bmi, last_donated_date }) {
+  const runtimeConfig = await systemConfigModel.getSystemConfig();
+  const cooldownDays = Number.isInteger(Number(runtimeConfig?.cooldown_days))
+    && Number(runtimeConfig.cooldown_days) > 0
+    ? Number(runtimeConfig.cooldown_days)
+    : DEFAULT_COOLDOWN_DAYS;
+
   const ageError = validateAge(age);
   if (ageError) return { ok: false, status: 400, error: ageError };
 
@@ -131,7 +138,7 @@ async function becomeVolunteer({ user_id, blood_group, age, bmi, last_donated_da
     return { ok: false, status: 400, error: "Invalid last_donated_date" };
   }
 
-  const deferred_until = calculateDeferredUntil(normalizedDonationDate);
+  const deferred_until = calculateDeferredUntil(normalizedDonationDate, cooldownDays);
 
   const donor = await Donor.createDonor({
     user_id,
