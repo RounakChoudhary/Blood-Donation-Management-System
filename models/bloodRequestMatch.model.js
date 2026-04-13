@@ -122,6 +122,7 @@ async function getMatchResponseContext(match_id) {
         m.id AS match_id,
         m.status AS match_status,
         m.donor_id,
+        m.distance_meters,
         d.user_id AS donor_user_id,
         u.full_name AS donor_name,
         u.email AS donor_email,

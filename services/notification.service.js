@@ -2,6 +2,7 @@ const Notification = require("../models/notification.model");
 const User = require("../models/user.model");
 const EmailLog = require("../models/emailLog.model");
 const Hospital = require("../models/hospital.model");
+const BloodRequest = require("../models/bloodRequest.model");
 const Match = require("../models/bloodRequestMatch.model");
 const RegularBloodRequest = require("../models/regularBloodRequest.model");
 const responseTokenService = require("./responseToken.service");
@@ -11,10 +12,6 @@ const RETRY_DELAYS_MS = [5000, 25000, 125000];
 
 function toKm(distanceMeters) {
   return (Number(distanceMeters || 0) / 1000).toFixed(1);
-}
-
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function buildRetryPayload({ attempt, nextRetryInMs = null, raw = null, error = null }) {
@@ -31,39 +28,48 @@ function buildNextRetryDate(nextRetryInMs) {
   return new Date(Date.now() + nextRetryInMs);
 }
 
-async function sendWithRetry({
-  notification,
-  emailLog,
-  donorUser,
-  request,
-  match,
-  hospital,
-}) {
+async function buildResponseLinks(match) {
   const tokenResult = await responseTokenService.issueResponseToken({
     match_id: match.id,
     donor_id: match.donor_id,
   });
 
   const token = encodeURIComponent(tokenResult.rawToken);
-  const acceptLink = `${process.env.APP_BASE_URL || "http://localhost:3000"}/donor-requests/respond/accept?token=${token}`;
-  const declineLink = `${process.env.APP_BASE_URL || "http://localhost:3000"}/donor-requests/respond/decline?token=${token}`;
+  return {
+    acceptLink: `${process.env.APP_BASE_URL || "http://localhost:3000"}/donor-requests/respond/accept?token=${token}`,
+    declineLink: `${process.env.APP_BASE_URL || "http://localhost:3000"}/donor-requests/respond/decline?token=${token}`,
+  };
+}
 
-  let lastError = null;
+function getNextRetryDelayMs(attempt) {
+  return RETRY_DELAYS_MS[attempt - 1] ?? null;
+}
 
-  for (let attempt = 1; attempt <= RETRY_DELAYS_MS.length + 1; attempt += 1) {
-    const last_attempt_at = new Date();
+async function deliverEmergencyMatchEmail({
+  notification,
+  emailLog,
+  recipientEmail,
+  donorId,
+  request,
+  match,
+  hospitalName,
+}) {
+  const attempt = Number(emailLog.attempt_count || 0) + 1;
+  const last_attempt_at = new Date();
+  const { acceptLink, declineLink } = await buildResponseLinks(match);
 
-    try {
-      const sendResult = await sendEmergencyEmail({
-        to: donorUser.email,
-        bloodGroup: request.blood_group,
-        unitsRequired: request.units_required,
-        distanceKm: toKm(match.distance_meters),
-        hospitalName: hospital?.name || null,
-        acceptLink,
-        declineLink,
-      });
+  try {
+    const sendResult = await sendEmergencyEmail({
+      to: recipientEmail,
+      bloodGroup: request.blood_group,
+      unitsRequired: request.units_required,
+      distanceKm: toKm(match.distance_meters),
+      hospitalName: hospitalName || null,
+      acceptLink,
+      declineLink,
+    });
 
+    if (notification?.id) {
       await Notification.updateNotificationById({
         id: notification.id,
         provider_message_id: sendResult.messageId || null,
@@ -76,69 +82,200 @@ async function sendWithRetry({
         }),
         sent_at: new Date(),
       });
+    }
 
-      await EmailLog.updateEmailLogById({
-        id: emailLog.id,
-        provider_message_id: sendResult.messageId || null,
-        status: "sent",
-        error_message: null,
-        payload: buildRetryPayload({
-          attempt,
-          nextRetryInMs: null,
-          raw: sendResult.raw,
-        }),
-        sent_at: new Date(),
-        attempt_count: attempt,
-        last_attempt_at,
-        next_retry_at: null,
-      });
-
-      await Match.markMatchNotified(match.id);
-
-      return {
-        ok: true,
-        provider_message_id: sendResult.messageId || null,
-        attempts: attempt,
-      };
-    } catch (err) {
-      lastError = err;
-      const nextRetryInMs = RETRY_DELAYS_MS[attempt - 1] ?? null;
-      const status = nextRetryInMs ? "pending" : "failed";
-      const retryPayload = buildRetryPayload({
+    await EmailLog.updateEmailLogById({
+      id: emailLog.id,
+      provider_message_id: sendResult.messageId || null,
+      status: "sent",
+      error_message: null,
+      payload: buildRetryPayload({
         attempt,
-        nextRetryInMs,
-        error: err.message,
-      });
+        nextRetryInMs: null,
+        raw: sendResult.raw,
+      }),
+      sent_at: new Date(),
+      attempt_count: attempt,
+      last_attempt_at,
+      next_retry_at: null,
+    });
 
+    await Match.markMatchNotified(match.id);
+
+    return {
+      ok: true,
+      provider_message_id: sendResult.messageId || null,
+      attempts: attempt,
+      scheduled_retry: false,
+    };
+  } catch (err) {
+    const nextRetryInMs = getNextRetryDelayMs(attempt);
+    const status = nextRetryInMs ? "pending" : "failed";
+    const retryPayload = buildRetryPayload({
+      attempt,
+      nextRetryInMs,
+      error: err.message,
+    });
+
+    if (notification?.id) {
       await Notification.updateNotificationById({
         id: notification.id,
         status,
         error_message: err.message,
         payload: retryPayload,
       });
+    }
 
-      await EmailLog.updateEmailLogById({
-        id: emailLog.id,
-        status,
-        error_message: err.message,
-        payload: retryPayload,
-        attempt_count: attempt,
-        last_attempt_at,
-        next_retry_at: buildNextRetryDate(nextRetryInMs),
-      });
+    await EmailLog.updateEmailLogById({
+      id: emailLog.id,
+      status,
+      error_message: err.message,
+      payload: retryPayload,
+      attempt_count: attempt,
+      last_attempt_at,
+      next_retry_at: buildNextRetryDate(nextRetryInMs),
+    });
 
-      if (!nextRetryInMs) {
-        break;
+    return {
+      ok: false,
+      reason: err.message,
+      attempts: attempt,
+      scheduled_retry: Boolean(nextRetryInMs),
+      donor_id: donorId,
+    };
+  }
+}
+
+async function processPendingEmailRetries({ limit = 25 } = {}) {
+  const dueLogs = await EmailLog.getDuePendingEmailLogs(limit);
+  if (!dueLogs.length) {
+    return {
+      ok: true,
+      processed_count: 0,
+      sent_count: 0,
+      rescheduled_count: 0,
+      failed_count: 0,
+      results: [],
+    };
+  }
+
+  const results = [];
+
+  for (const emailLog of dueLogs) {
+    try {
+      const match = await Match.getMatchById(emailLog.match_id);
+      if (!match) {
+        await EmailLog.updateEmailLogById({
+          id: emailLog.id,
+          status: "failed",
+          error_message: "Match not found for retry",
+          next_retry_at: null,
+        });
+        if (emailLog.notification_id) {
+          await Notification.updateNotificationById({
+            id: emailLog.notification_id,
+            status: "failed",
+            error_message: "Match not found for retry",
+          });
+        }
+        results.push({ email_log_id: emailLog.id, ok: false, reason: "Match not found for retry" });
+        continue;
       }
 
-      await delay(nextRetryInMs);
+      if (!["pending", "notified"].includes(match.status)) {
+        await EmailLog.updateEmailLogById({
+          id: emailLog.id,
+          status: "failed",
+          error_message: `Retry cancelled because match is ${match.status}`,
+          next_retry_at: null,
+        });
+        if (emailLog.notification_id) {
+          await Notification.updateNotificationById({
+            id: emailLog.notification_id,
+            status: "failed",
+            error_message: `Retry cancelled because match is ${match.status}`,
+          });
+        }
+        results.push({
+          email_log_id: emailLog.id,
+          ok: false,
+          reason: `Retry cancelled because match is ${match.status}`,
+        });
+        continue;
+      }
+
+      const context = await Match.getMatchResponseContext(match.id);
+      if (!context?.donor_email) {
+        await EmailLog.updateEmailLogById({
+          id: emailLog.id,
+          status: "failed",
+          error_message: "Recipient email missing for retry",
+          next_retry_at: null,
+        });
+        if (emailLog.notification_id) {
+          await Notification.updateNotificationById({
+            id: emailLog.notification_id,
+            status: "failed",
+            error_message: "Recipient email missing for retry",
+          });
+        }
+        results.push({ email_log_id: emailLog.id, ok: false, reason: "Recipient email missing for retry" });
+        continue;
+      }
+
+      const request = await BloodRequest.getBloodRequestById(match.request_id);
+      if (!request) {
+        await EmailLog.updateEmailLogById({
+          id: emailLog.id,
+          status: "failed",
+          error_message: "Blood request not found for retry",
+          next_retry_at: null,
+        });
+        if (emailLog.notification_id) {
+          await Notification.updateNotificationById({
+            id: emailLog.notification_id,
+            status: "failed",
+            error_message: "Blood request not found for retry",
+          });
+        }
+        results.push({ email_log_id: emailLog.id, ok: false, reason: "Blood request not found for retry" });
+        continue;
+      }
+
+      const delivery = await deliverEmergencyMatchEmail({
+        notification: { id: emailLog.notification_id },
+        emailLog,
+        recipientEmail: context.donor_email,
+        donorId: context.donor_id,
+        request,
+        match,
+        hospitalName: context.hospital_name,
+      });
+
+      results.push({
+        email_log_id: emailLog.id,
+        ok: delivery.ok,
+        attempts: delivery.attempts,
+        scheduled_retry: Boolean(delivery.scheduled_retry),
+        provider_message_id: delivery.provider_message_id || null,
+        reason: delivery.reason || null,
+      });
+    } catch (error) {
+      results.push({
+        email_log_id: emailLog.id,
+        ok: false,
+        reason: error.message,
+      });
     }
   }
 
   return {
-    ok: false,
-    reason: lastError ? lastError.message : "Email delivery failed",
-    attempts: RETRY_DELAYS_MS.length + 1,
+    ok: true,
+    processed_count: dueLogs.length,
+    sent_count: results.filter((item) => item.ok).length,
+    rescheduled_count: results.filter((item) => item.scheduled_retry).length,
+    failed_count: results.filter((item) => !item.ok && !item.scheduled_retry).length,
+    results,
   };
 }
 
@@ -206,13 +343,14 @@ async function sendEmailForMatches(matches, request) {
     });
 
     try {
-      const delivery = await sendWithRetry({
+      const delivery = await deliverEmergencyMatchEmail({
         notification,
         emailLog,
-        donorUser,
+        recipientEmail: donorUser.email,
+        donorId: match.donor_id,
         request,
         match,
-        hospital,
+        hospitalName: hospital?.name || null,
       });
 
       results.push({
@@ -221,6 +359,7 @@ async function sendEmailForMatches(matches, request) {
         provider_message_id: delivery.provider_message_id || null,
         attempts: delivery.attempts,
         reason: delivery.reason || null,
+        scheduled_retry: Boolean(delivery.scheduled_retry),
       });
     } catch (err) {
       await Notification.updateNotificationById({
@@ -367,6 +506,7 @@ async function notifyBloodBanksForRegularRequest({ request, bloodBanks = [] }) {
 
 module.exports = {
   sendEmailForMatches,
+  processPendingEmailRetries,
   notifyBloodBanksForEmergencyRequest,
   notifyBloodBanksForRegularRequest,
 };

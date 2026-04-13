@@ -64,41 +64,62 @@ async function updateEmailLogById({
   last_attempt_at,
   next_retry_at,
 }) {
+  const updates = [];
+  const values = [id];
+
+  const pushUpdate = (column, value) => {
+    if (value !== undefined) {
+      values.push(value);
+      updates.push(`${column} = $${values.length}`);
+    }
+  };
+
+  pushUpdate("notification_id", notification_id);
+  pushUpdate("provider_message_id", provider_message_id);
+  pushUpdate("status", status);
+  pushUpdate("error_message", error_message);
+  pushUpdate("payload", payload);
+  pushUpdate("sent_at", sent_at);
+  pushUpdate("attempt_count", attempt_count);
+  pushUpdate("last_attempt_at", last_attempt_at);
+  pushUpdate("next_retry_at", next_retry_at);
+  updates.push("updated_at = NOW()");
+
   const { rows } = await pool.query(
     `
       UPDATE email_log
-      SET
-        notification_id = COALESCE($2, notification_id),
-        provider_message_id = COALESCE($3, provider_message_id),
-        status = COALESCE($4, status),
-        error_message = COALESCE($5, error_message),
-        payload = COALESCE($6, payload),
-        sent_at = COALESCE($7, sent_at),
-        attempt_count = COALESCE($8, attempt_count),
-        last_attempt_at = COALESCE($9, last_attempt_at),
-        next_retry_at = COALESCE($10, next_retry_at),
-        updated_at = NOW()
+      SET ${updates.join(", ")}
       WHERE id = $1
       RETURNING *
     `,
-    [
-      id,
-      notification_id,
-      provider_message_id,
-      status,
-      error_message,
-      payload,
-      sent_at,
-      attempt_count,
-      last_attempt_at,
-      next_retry_at,
-    ]
+    values
   );
 
   return rows[0] || null;
 }
 
+async function getDuePendingEmailLogs(limit = 25) {
+  const normalizedLimit = Number.isInteger(Number(limit)) && Number(limit) > 0 ? Number(limit) : 25;
+
+  const { rows } = await pool.query(
+    `
+      SELECT
+        el.*
+      FROM email_log el
+      WHERE el.status = 'pending'
+        AND el.template_name = 'emergency_blood_request_email'
+        AND (el.next_retry_at IS NULL OR el.next_retry_at <= NOW())
+      ORDER BY COALESCE(el.next_retry_at, el.created_at) ASC, el.id ASC
+      LIMIT $1
+    `,
+    [normalizedLimit]
+  );
+
+  return rows;
+}
+
 module.exports = {
   createEmailLog,
   updateEmailLogById,
+  getDuePendingEmailLogs,
 };
