@@ -99,6 +99,36 @@ export const verifyOtp = async (email, otp) => {
   return data; // { message, user }
 };
 
+export const forgotPassword = async (email) => {
+  const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || data.message || "Password reset request failed");
+  }
+
+  return data;
+};
+
+export const resetPassword = async ({ token, new_password }) => {
+  const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, new_password }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || data.message || "Password reset failed");
+  }
+
+  return data;
+};
+
 export const registerHospital = async ({
   name,
   phone,
