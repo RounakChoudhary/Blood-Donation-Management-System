@@ -638,6 +638,9 @@ export default function Auth({ mode = 'login' }) {
           {mode === 'reset-password' && (
             <p>Back to login? <Link to="/login" className="text-primary hover:underline font-bold">Sign in</Link></p>
           )}
+          <p className="mt-3">
+            Organising a blood drive? <Link to="/organize-camp" className="text-primary hover:underline font-bold">Submit a camp proposal</Link>
+          </p>
         </div>
       </Card>
     </div>
