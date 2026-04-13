@@ -6,6 +6,7 @@ async function createDonor({
   last_donation_date = null,
   deferred_until = null,
   availability_status = "available",
+  email_updates_enabled = true,
   date_of_birth = null,
   address = null,
   emergency_contact_name = null,
@@ -18,12 +19,13 @@ async function createDonor({
       last_donation_date,
       deferred_until,
       availability_status,
+      email_updates_enabled,
       date_of_birth,
       address,
       emergency_contact_name,
       emergency_contact_phone
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     RETURNING
       id,
       user_id,
@@ -31,6 +33,7 @@ async function createDonor({
       last_donation_date,
       deferred_until,
       availability_status,
+      email_updates_enabled,
       date_of_birth,
       address,
       emergency_contact_name,
@@ -45,6 +48,7 @@ async function createDonor({
     last_donation_date,
     deferred_until,
     availability_status,
+    email_updates_enabled,
     date_of_birth,
     address,
     emergency_contact_name,
@@ -64,6 +68,7 @@ async function getDonorByUserId(user_id) {
       last_donation_date,
       deferred_until,
       availability_status,
+      email_updates_enabled,
       date_of_birth,
       address,
       emergency_contact_name,
@@ -87,6 +92,7 @@ async function getDonorById(id) {
       last_donation_date,
       deferred_until,
       availability_status,
+      email_updates_enabled,
       date_of_birth,
       address,
       emergency_contact_name,
@@ -115,6 +121,7 @@ async function updateAvailabilityByUserId({ user_id, availability_status }) {
       last_donation_date,
       deferred_until,
       availability_status,
+      email_updates_enabled,
       date_of_birth,
       address,
       emergency_contact_name,
@@ -141,6 +148,7 @@ async function updateAvailabilityByDonorId({ donor_id, availability_status }) {
       last_donation_date,
       deferred_until,
       availability_status,
+      email_updates_enabled,
       date_of_birth,
       address,
       emergency_contact_name,
@@ -187,6 +195,7 @@ async function updateProfileByUserId({
   emergency_contact_name = null,
   emergency_contact_phone = null,
   availability_status = null,
+  email_updates_enabled = null,
 }) {
   const query = `
     UPDATE donors
@@ -196,8 +205,9 @@ async function updateProfileByUserId({
       emergency_contact_name = COALESCE($3, emergency_contact_name),
       emergency_contact_phone = COALESCE($4, emergency_contact_phone),
       availability_status = COALESCE($5, availability_status),
+      email_updates_enabled = COALESCE($6, email_updates_enabled),
       updated_at = NOW()
-    WHERE user_id = $6
+    WHERE user_id = $7
     RETURNING
       id,
       user_id,
@@ -205,6 +215,7 @@ async function updateProfileByUserId({
       last_donation_date,
       deferred_until,
       availability_status,
+      email_updates_enabled,
       date_of_birth,
       address,
       emergency_contact_name,
@@ -219,6 +230,7 @@ async function updateProfileByUserId({
     emergency_contact_name,
     emergency_contact_phone,
     availability_status,
+    email_updates_enabled,
     user_id,
   ]);
 

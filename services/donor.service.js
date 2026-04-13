@@ -231,6 +231,13 @@ async function updateMyProfile(user_id, payload = {}) {
   }
 
   if (
+    payload.email_updates_enabled !== undefined &&
+    typeof payload.email_updates_enabled !== "boolean"
+  ) {
+    return { ok: false, status: 400, error: "email_updates_enabled must be a boolean" };
+  }
+
+  if (
     (payload.lon !== undefined && payload.lat === undefined) ||
     (payload.lon === undefined && payload.lat !== undefined) ||
     (payload.lon !== undefined && Number.isNaN(Number(payload.lon))) ||
@@ -253,6 +260,7 @@ async function updateMyProfile(user_id, payload = {}) {
     emergency_contact_name: payload.emergency_contact_name ?? null,
     emergency_contact_phone: payload.emergency_contact_phone ?? null,
     availability_status: payload.availability_status ?? null,
+    email_updates_enabled: payload.email_updates_enabled ?? null,
   });
 
   return {
