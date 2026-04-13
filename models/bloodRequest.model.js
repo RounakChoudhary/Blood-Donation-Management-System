@@ -327,6 +327,45 @@ async function countFulfilledBloodRequests() {
   return parseInt(rows[0].count, 10);
 }
 
+async function getEmergencyRequestReportSummary() {
+  const { rows } = await pool.query(
+    `
+      SELECT
+        COUNT(*)::INT AS total_requests,
+        COUNT(*) FILTER (WHERE status = 'fulfilled')::INT AS fulfilled_requests,
+        COUNT(*) FILTER (WHERE status = 'cancelled')::INT AS cancelled_requests,
+        COUNT(*) FILTER (WHERE status IN ('pending', 'matching', 'active'))::INT AS open_requests,
+        COALESCE(SUM(units_required), 0)::INT AS total_units_requested
+      FROM blood_requests
+      WHERE is_deleted = false
+    `
+  );
+
+  return rows[0] || {
+    total_requests: 0,
+    fulfilled_requests: 0,
+    cancelled_requests: 0,
+    open_requests: 0,
+    total_units_requested: 0,
+  };
+}
+
+async function getBloodRequestStatusBreakdown() {
+  const { rows } = await pool.query(
+    `
+      SELECT
+        status,
+        COUNT(*)::INT AS request_count
+      FROM blood_requests
+      WHERE is_deleted = false
+      GROUP BY status
+      ORDER BY status ASC
+    `
+  );
+
+  return rows;
+}
+
 async function deleteBloodRequest(requestId) {
   const { rows } = await pool.query(
     'UPDATE blood_requests SET is_deleted = true WHERE id = $1 AND is_deleted = false RETURNING id',
@@ -385,6 +424,8 @@ module.exports = {
   countBloodRequests,
   countBloodRequestsToday,
   countFulfilledBloodRequests,
+  getEmergencyRequestReportSummary,
+  getBloodRequestStatusBreakdown,
   deleteBloodRequest,
   updateBloodRequestStatus,
   transitionBloodRequestStatus,

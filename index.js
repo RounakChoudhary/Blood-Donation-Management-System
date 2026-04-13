@@ -50,6 +50,7 @@ const bloodBankRoutes = require("./routes/bloodBank.routes");
 const bloodCampRoutes = require("./routes/bloodCamp.routes");
 const adminRoutes = require("./routes/admin.routes");
 const apiRoutes = require("./routes/api.routes");
+const { startBackgroundJobs } = require("./services/scheduler.service");
 
 app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
@@ -69,4 +70,5 @@ app.get("/", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  startBackgroundJobs();
 });
