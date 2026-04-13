@@ -5,6 +5,7 @@ const Hospital = require("../models/hospital.model");
 const BloodRequest = require("../models/bloodRequest.model");
 const Match = require("../models/bloodRequestMatch.model");
 const RegularBloodRequest = require("../models/regularBloodRequest.model");
+const UserNotification = require("../models/userNotification.model");
 const responseTokenService = require("./responseToken.service");
 const { sendEmergencyEmail, sendRegularBloodRequestEmail } = require("./email.service");
 
@@ -43,6 +44,11 @@ async function buildResponseLinks(match) {
 
 function getNextRetryDelayMs(attempt) {
   return RETRY_DELAYS_MS[attempt - 1] ?? null;
+}
+
+function buildDonorMatchMessage({ request, hospitalName, match }) {
+  const distanceKm = toKm(match.distance_meters);
+  return `${hospitalName || "A nearby hospital"} needs ${request.blood_group} blood. ${request.units_required} unit(s) requested, approximately ${distanceKm} km away.`;
 }
 
 async function deliverEmergencyMatchEmail({
@@ -297,6 +303,24 @@ async function sendEmailForMatches(matches, request) {
     const donorUser = donorMap.get(match.donor_id);
 
     if (!donorUser || !donorUser.email) {
+      if (donorUser?.user_id) {
+        await UserNotification.createUserNotification({
+          user_id: donorUser.user_id,
+          message: buildDonorMatchMessage({
+            request,
+            hospitalName: hospital?.name || null,
+            match,
+          }),
+          payload: {
+            type: "emergency_blood_request",
+            match_id: match.id,
+            request_id: request.id,
+            hospital_id: request.hospital_id,
+            blood_group: request.blood_group,
+          },
+        });
+      }
+
       const notification = await Notification.createNotification({
         match_id: match.id,
         template_name: "emergency_blood_request_email",
@@ -329,6 +353,22 @@ async function sendEmailForMatches(matches, request) {
       template_name: "emergency_blood_request_email",
       status: "pending",
       payload: { donor_id: match.donor_id, recipient_email: donorUser.email },
+    });
+
+    await UserNotification.createUserNotification({
+      user_id: donorUser.user_id,
+      message: buildDonorMatchMessage({
+        request,
+        hospitalName: hospital?.name || null,
+        match,
+      }),
+      payload: {
+        type: "emergency_blood_request",
+        match_id: match.id,
+        request_id: request.id,
+        hospital_id: request.hospital_id,
+        blood_group: request.blood_group,
+      },
     });
 
     const emailLog = await EmailLog.createEmailLog({

@@ -1,5 +1,29 @@
 const pool = require("./db");
 
+async function createUserNotification({
+  user_id,
+  message,
+  payload = null,
+}) {
+  const { rows } = await pool.query(
+    `
+      INSERT INTO notifications (
+        user_id,
+        message,
+        payload,
+        is_read,
+        status,
+        channel
+      )
+      VALUES ($1, $2, $3, FALSE, 'sent', 'email')
+      RETURNING id, user_id, message, is_read, created_at
+    `,
+    [user_id, message, payload]
+  );
+
+  return rows[0] || null;
+}
+
 async function getNotificationsByUserId(user_id) {
   const { rows } = await pool.query(
     `
@@ -7,6 +31,7 @@ async function getNotificationsByUserId(user_id) {
         id,
         user_id,
         message,
+        payload,
         is_read,
         created_at
       FROM notifications
@@ -26,7 +51,7 @@ async function markNotificationRead({ notificationId, userId }) {
       SET is_read = TRUE
       WHERE id = $1
         AND user_id = $2
-      RETURNING id, user_id, message, is_read, created_at
+      RETURNING id, user_id, message, payload, is_read, created_at
     `,
     [notificationId, userId]
   );
@@ -35,6 +60,7 @@ async function markNotificationRead({ notificationId, userId }) {
 }
 
 module.exports = {
+  createUserNotification,
   getNotificationsByUserId,
   markNotificationRead,
 };
