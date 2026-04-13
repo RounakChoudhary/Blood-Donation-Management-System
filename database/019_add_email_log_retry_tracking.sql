@@ -5,5 +5,11 @@ CHECK (attempt_count >= 0);
 ALTER TABLE email_log
 ADD COLUMN IF NOT EXISTS last_attempt_at TIMESTAMPTZ;
 
+ALTER TABLE email_log
+ADD COLUMN IF NOT EXISTS next_retry_at TIMESTAMPTZ;
+
 CREATE INDEX IF NOT EXISTS idx_email_log_last_attempt_at
 ON email_log(last_attempt_at);
+
+CREATE INDEX IF NOT EXISTS idx_email_log_next_retry_at
+ON email_log(next_retry_at);

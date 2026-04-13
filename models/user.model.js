@@ -142,7 +142,15 @@ async function getUserById(id) {
       last_failed_login_at,
       locked_until,
       created_at,
-      location_updated_at
+      location_updated_at,
+      CASE WHEN location IS NOT NULL
+        THEN ST_Y(location::geometry) 
+        ELSE NULL 
+      END AS lat,
+      CASE WHEN location IS NOT NULL
+        THEN ST_X(location::geometry)
+        ELSE NULL
+      END AS lon
     FROM users
     WHERE id = $1 AND is_deleted = false
   `;

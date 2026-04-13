@@ -111,6 +111,8 @@ function mergeProfile(user, donor) {
     email_verified: user.email_verified,
     is_active: user.is_active,
     location_updated_at: user.location_updated_at,
+    lat: user.lat,
+    lon: user.lon,
   });
 }
 
