@@ -4,7 +4,9 @@ const {
   validateEmail,
   validatePhone,
   validatePassword,
+  validateRequiredText,
   validateCoordinates,
+  validateDateOfBirth,
   validateBloodGroup,
   validatePositiveInteger,
 } = require("../utils/validation");
@@ -33,6 +35,8 @@ function run() {
 
   assert.equal(validatePassword("Secure123").isValid, true);
   assert.equal(validatePassword("weakpass").isValid, false);
+  assert.equal(validateRequiredText("  Donor Name  ", "full_name").isValid, true);
+  assert.equal(validateRequiredText(" ", "address").isValid, false);
 
   {
     const result = validateCoordinates("28.6139", "77.2090");
@@ -56,6 +60,18 @@ function run() {
   {
     const result = validateBloodGroup("HH");
     assert.equal(result.isValid, false);
+  }
+
+  {
+    const result = validateDateOfBirth("2000-01-15");
+    assert.equal(result.isValid, true);
+    assert.equal(result.value, "2000-01-15");
+  }
+
+  {
+    const result = validateDateOfBirth("2012-01-15");
+    assert.equal(result.isValid, false);
+    assert.match(result.error, /age must be between/i);
   }
 
   assert.equal(validatePositiveInteger(5, "units").isValid, true);

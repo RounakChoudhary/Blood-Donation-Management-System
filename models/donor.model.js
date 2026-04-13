@@ -10,7 +10,7 @@ async function createDonor({
   address = null,
   emergency_contact_name = null,
   emergency_contact_phone = null,
-}) {
+}, dbClient = pool) {
   const query = `
     INSERT INTO donors (
       user_id,
@@ -51,7 +51,7 @@ async function createDonor({
     emergency_contact_phone,
   ];
 
-  const { rows } = await pool.query(query, values);
+  const { rows } = await dbClient.query(query, values);
   return rows[0];
 }
 
@@ -153,7 +153,7 @@ async function updateAvailabilityByDonorId({ donor_id, availability_status }) {
   return rows[0] || null;
 }
 
-async function markDonated({ donor_id, donation_date = null, cooldown_days = 120 }) {
+async function markDonated({ donor_id, donation_date = null, cooldown_days = 90 }) {
   const query = `
     UPDATE donors
     SET

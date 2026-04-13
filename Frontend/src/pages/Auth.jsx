@@ -15,6 +15,10 @@ export default function Auth({ mode = 'login' }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
+  const [bloodGroup, setBloodGroup] = useState('O+');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [emergencyContactName, setEmergencyContactName] = useState('');
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
   
   // Shared location states
   const [address, setAddress] = useState('');
@@ -28,6 +32,7 @@ export default function Auth({ mode = 'login' }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const donorBloodGroupOptions = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
   const roleOptions = mode === 'register' 
     ? [
@@ -54,10 +59,10 @@ export default function Auth({ mode = 'login' }) {
     try {
       let userRole;
       if (role === 'hospital') {
-        const data = await loginHospital(email, password);
+        await loginHospital(email, password);
         userRole = 'hospital';
       } else if (role === 'bloodbank') {
-        const data = await loginBloodBank(email, password);
+        await loginBloodBank(email, password);
         userRole = 'bloodbank';
       } else {
         const data = await login(email, password);
@@ -136,8 +141,20 @@ export default function Auth({ mode = 'login' }) {
     }
 
     // Default Donor Registration
-    if (!name || !email || !password || !phone || !lat || !lon) {
-      setError('Please fill in all donor fields, including location.');
+    if (
+      !name ||
+      !email ||
+      !password ||
+      !phone ||
+      !dateOfBirth ||
+      !bloodGroup ||
+      !address ||
+      !emergencyContactName ||
+      !emergencyContactPhone ||
+      !lat ||
+      !lon
+    ) {
+      setError('Please fill in all donor registration fields.');
       return;
     }
 
@@ -146,7 +163,19 @@ export default function Auth({ mode = 'login' }) {
     setSuccess(null);
 
     try {
-      const data = await register({ full_name: name, email, password, phone, lon, lat });
+      const data = await register({
+        full_name: name,
+        email,
+        password,
+        phone,
+        lon,
+        lat,
+        date_of_birth: dateOfBirth,
+        blood_group: bloodGroup,
+        address,
+        emergency_contact_name: emergencyContactName,
+        emergency_contact_phone: emergencyContactPhone,
+      });
       setSuccess(data.message || 'Registration successful! Check your email for the OTP.');
       setTimeout(() => {
         navigate('/verify-otp', { replace: true });
@@ -241,13 +270,27 @@ export default function Auth({ mode = 'login' }) {
           {mode === 'register' && (
             <>
               {role === 'donor' && (
-                <Input
-                  label="Full Name"
-                  placeholder="John Doe"
-                  icon={<User size={18} />}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
+                <>
+                  <Input
+                    label="Full Name"
+                    placeholder="John Doe"
+                    icon={<User size={18} />}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                  <Select
+                    label="Blood Group"
+                    options={donorBloodGroupOptions}
+                    value={bloodGroup}
+                    onChange={(e) => setBloodGroup(e.target.value)}
+                  />
+                  <Input
+                    label="Date of Birth"
+                    type="date"
+                    value={dateOfBirth}
+                    onChange={(e) => setDateOfBirth(e.target.value)}
+                  />
+                </>
               )}
               {(role === 'hospital' || role === 'bloodbank') && (
                 <Input
@@ -286,7 +329,7 @@ export default function Auth({ mode = 'login' }) {
                   onChange={(e) => setPhone(e.target.value)}
                 />
               )}
-              {(role === 'hospital' || role === 'bloodbank') && (
+              {(role === 'donor' || role === 'hospital' || role === 'bloodbank') && (
                 <>
                   <Input
                     label="Full Address"
@@ -294,6 +337,25 @@ export default function Auth({ mode = 'login' }) {
                     icon={<MapPin size={18} />}
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
+                  />
+                </>
+              )}
+              {role === 'donor' && (
+                <>
+                  <Input
+                    label="Emergency Contact Name"
+                    placeholder="Jane Doe"
+                    icon={<User size={18} />}
+                    value={emergencyContactName}
+                    onChange={(e) => setEmergencyContactName(e.target.value)}
+                  />
+                  <Input
+                    label="Emergency Contact Phone"
+                    type="tel"
+                    placeholder="9876543211"
+                    icon={<Phone size={18} />}
+                    value={emergencyContactPhone}
+                    onChange={(e) => setEmergencyContactPhone(e.target.value)}
                   />
                 </>
               )}

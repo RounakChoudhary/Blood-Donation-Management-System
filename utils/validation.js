@@ -7,6 +7,19 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phoneRegex = /^\d{10,15}$/; // 10-15 digits, international friendly
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/; // Min 8 chars, 1 upper, 1 lower, 1 number
 
+function validateRequiredText(value, fieldName, minLength = 2) {
+  if (!value || typeof value !== 'string') {
+    return { isValid: false, error: `${fieldName} is required and must be a string` };
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.length < minLength) {
+    return { isValid: false, error: `${fieldName} must be at least ${minLength} characters` };
+  }
+
+  return { isValid: true, value: trimmed };
+}
+
 function validateEmail(email) {
   if (!email || typeof email !== 'string') {
     return { isValid: false, error: 'Email is required and must be a string' };
@@ -51,6 +64,43 @@ function validateCoordinates(lat, lon) {
   return { isValid: true, lat: latNum, lon: lonNum };
 }
 
+function calculateAgeFromDate(dateValue) {
+  const today = new Date();
+  let age = today.getUTCFullYear() - dateValue.getUTCFullYear();
+  const monthDiff = today.getUTCMonth() - dateValue.getUTCMonth();
+
+  if (
+    monthDiff < 0 ||
+    (monthDiff === 0 && today.getUTCDate() < dateValue.getUTCDate())
+  ) {
+    age -= 1;
+  }
+
+  return age;
+}
+
+function validateDateOfBirth(dateOfBirth, minAge = 18, maxAge = 65) {
+  if (!dateOfBirth || typeof dateOfBirth !== 'string') {
+    return { isValid: false, error: 'date_of_birth is required and must be a string' };
+  }
+
+  const parsed = new Date(`${dateOfBirth}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    return { isValid: false, error: 'date_of_birth must be a valid date' };
+  }
+
+  const age = calculateAgeFromDate(parsed);
+  if (age < minAge || age > maxAge) {
+    return { isValid: false, error: `Age must be between ${minAge} and ${maxAge}` };
+  }
+
+  return {
+    isValid: true,
+    value: parsed.toISOString().slice(0, 10),
+    age,
+  };
+}
+
 function validateBloodGroup(bloodGroup) {
   const validGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
   if (!bloodGroup || typeof bloodGroup !== 'string') {
@@ -75,7 +125,9 @@ module.exports = {
   validateEmail,
   validatePhone,
   validatePassword,
+  validateRequiredText,
   validateCoordinates,
+  validateDateOfBirth,
   validateBloodGroup,
   validatePositiveInteger,
 };

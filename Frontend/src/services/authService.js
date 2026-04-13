@@ -45,11 +45,35 @@ export const isLoggedIn = () => {
   return !!localStorage.getItem("token");
 };
 
-export const register = async ({ full_name, email, password, phone, lon, lat }) => {
+export const register = async ({
+  full_name,
+  email,
+  password,
+  phone,
+  lon,
+  lat,
+  date_of_birth,
+  blood_group,
+  address,
+  emergency_contact_name,
+  emergency_contact_phone,
+}) => {
   const response = await fetch(`${API_BASE_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ full_name, email, password, phone, lon, lat }),
+    body: JSON.stringify({
+      full_name,
+      email,
+      password,
+      phone,
+      lon,
+      lat,
+      date_of_birth,
+      blood_group,
+      address,
+      emergency_contact_name,
+      emergency_contact_phone,
+    }),
   });
 
   const data = await response.json();

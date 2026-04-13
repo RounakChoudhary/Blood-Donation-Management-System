@@ -8,7 +8,7 @@ async function createUser({
   lon = null,
   lat = null,
   role = "user",
-}) {
+}, dbClient = pool) {
   const query = `
     INSERT INTO users (
       full_name,
@@ -54,7 +54,7 @@ async function createUser({
   `;
 
   const values = [full_name, email, password_hash, phone, role, lon, lat];
-  const { rows } = await pool.query(query, values);
+  const { rows } = await dbClient.query(query, values);
   return rows[0];
 }
 
