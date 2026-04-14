@@ -42,33 +42,50 @@ async function createNotification({
 
 async function updateNotificationById({
   id,
-  provider_message_id = null,
-  status = null,
-  error_message = null,
-  payload = null,
-  sent_at = null,
+  provider_message_id,
+  status,
+  error_message,
+  payload,
+  sent_at,
 }) {
+  const updates = [];
+  const values = [id];
+
+  if (provider_message_id !== undefined) {
+    values.push(provider_message_id);
+    updates.push(`provider_message_id = $${values.length}`);
+  }
+
+  if (status !== undefined) {
+    values.push(status);
+    updates.push(`status = $${values.length}`);
+  }
+
+  if (error_message !== undefined) {
+    values.push(error_message);
+    updates.push(`error_message = $${values.length}`);
+  }
+
+  if (payload !== undefined) {
+    values.push(payload);
+    updates.push(`payload = $${values.length}`);
+  }
+
+  if (sent_at !== undefined) {
+    values.push(sent_at);
+    updates.push(`sent_at = $${values.length}`);
+  }
+
+  updates.push("updated_at = NOW()");
+
   const query = `
     UPDATE notifications
-    SET
-      provider_message_id = COALESCE($2, provider_message_id),
-      status = COALESCE($3, status),
-      error_message = COALESCE($4, error_message),
-      payload = COALESCE($5, payload),
-      sent_at = COALESCE($6, sent_at),
-      updated_at = NOW()
+    SET ${updates.join(", ")}
     WHERE id = $1
     RETURNING *;
   `;
 
-  const { rows } = await pool.query(query, [
-    id,
-    provider_message_id,
-    status,
-    error_message,
-    payload,
-    sent_at,
-  ]);
+  const { rows } = await pool.query(query, values);
 
   return rows[0] || null;
 }

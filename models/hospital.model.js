@@ -1,19 +1,62 @@
 const pool = require("./db");
 
-async function createHospital({ name, phone, email, address = null, lon, lat }) {
+async function createHospital({
+  name,
+  phone,
+  email,
+  address = null,
+  license_number = null,
+  emergency_contact_phone = null,
+  hospital_type = null,
+  lon,
+  lat,
+}) {
   const query = `
-    INSERT INTO hospitals (name, phone, email, address, location, onboarding_status)
+    INSERT INTO hospitals (
+      name,
+      phone,
+      email,
+      address,
+      license_number,
+      emergency_contact_phone,
+      hospital_type,
+      location,
+      onboarding_status
+    )
     VALUES (
       $1,
       $2,
       $3,
       $4,
-      ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography,
+      $5,
+      $6,
+      $7,
+      ST_SetSRID(ST_MakePoint($8, $9), 4326)::geography,
       'pending'
     )
-    RETURNING id, name, phone, email, address, onboarding_status, created_at
+    RETURNING
+      id,
+      name,
+      phone,
+      email,
+      address,
+      license_number,
+      emergency_contact_phone,
+      hospital_type,
+      onboarding_status,
+      created_at
   `;
-  const values = [name, phone, email, address, lon, lat];
+  const values = [
+    name,
+    phone,
+    email,
+    address,
+    license_number,
+    emergency_contact_phone,
+    hospital_type,
+    lon,
+    lat,
+  ];
   const { rows } = await pool.query(query, values);
   return rows[0];
 }
@@ -26,6 +69,9 @@ async function getHospitalById(id) {
         name,
         phone,
         address,
+        license_number,
+        emergency_contact_phone,
+        hospital_type,
         email,
         ST_X(location::geometry) AS lon,
         ST_Y(location::geometry) AS lat,
@@ -52,6 +98,9 @@ async function getHospitalByEmail(email) {
         name,
         phone,
         address,
+        license_number,
+        emergency_contact_phone,
+        hospital_type,
         email,
         password_hash,
         onboarding_status,
@@ -77,6 +126,9 @@ async function getHospitalByPhone(phone) {
         name,
         phone,
         address,
+        license_number,
+        emergency_contact_phone,
+        hospital_type,
         email,
         onboarding_status,
         verified_at,
@@ -101,6 +153,9 @@ async function getHospitalsByStatus(status, limit = 50, offset = 0) {
         name,
         phone,
         address,
+        license_number,
+        emergency_contact_phone,
+        hospital_type,
         email,
         onboarding_status,
         verified_at,
@@ -128,10 +183,29 @@ async function updateHospitalStatus(hospitalId, status) {
         END
       WHERE id = $1
         AND is_deleted = false
-      RETURNING id, name, onboarding_status, verified_at
+      RETURNING id, name, license_number, emergency_contact_phone, hospital_type, onboarding_status, verified_at
     `,
     [hospitalId, status]
   );
+  return rows[0] || null;
+}
+
+async function getHospitalByLicenseNumber(license_number) {
+  const { rows } = await pool.query(
+    `
+      SELECT
+        id,
+        name,
+        license_number,
+        onboarding_status
+      FROM hospitals
+      WHERE license_number = $1
+        AND is_deleted = false
+      LIMIT 1
+    `,
+    [license_number]
+  );
+
   return rows[0] || null;
 }
 
@@ -158,10 +232,11 @@ async function getAllHospitals(limit = 50, offset = 0, search = "") {
     query = `
       SELECT
         id, name, phone, address, email, onboarding_status, verified_at, created_at,
+        license_number, emergency_contact_phone, hospital_type,
         COUNT(*) OVER() AS total_count
       FROM hospitals
       WHERE is_deleted = false
-      AND (name ILIKE $3 OR email ILIKE $3 OR phone ILIKE $3)
+      AND (name ILIKE $3 OR email ILIKE $3 OR phone ILIKE $3 OR license_number ILIKE $3)
       ORDER BY created_at DESC
       LIMIT $1 OFFSET $2
     `;
@@ -170,6 +245,7 @@ async function getAllHospitals(limit = 50, offset = 0, search = "") {
     query = `
       SELECT
         id, name, phone, address, email, onboarding_status, verified_at, created_at,
+        license_number, emergency_contact_phone, hospital_type,
         COUNT(*) OVER() AS total_count
       FROM hospitals
       WHERE is_deleted = false
@@ -269,6 +345,7 @@ module.exports = {
   getHospitalById,
   getHospitalByEmail,
   getHospitalByPhone,
+  getHospitalByLicenseNumber,
   getHospitalsByStatus,
   updateHospitalStatus,
   setHospitalAuth,

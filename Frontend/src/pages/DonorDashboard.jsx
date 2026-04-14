@@ -1,16 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
 import Button from '../components/Button';
-import { HeartHandshake } from 'lucide-react';
-import { getDonorDashboard, getDonorRequests, respondToDonorRequest, becomeVolunteer } from '../services/donorService';
+import Input from '../components/Input';
+import Select from '../components/Select';
+import { CalendarDays, HeartHandshake, MapPin, Search, TentTree } from 'lucide-react';
+import {
+  getDonorDashboard,
+  getDonorRequests,
+  respondToDonorRequest,
+  becomeVolunteer,
+} from '../services/donorService';
+import { getCampDiscoveryBase, searchNearbyCamps } from '../services/campService';
+
+const RADIUS_OPTIONS = [
+  { label: '5 km', value: '5000' },
+  { label: '10 km', value: '10000' },
+  { label: '25 km', value: '25000' },
+  { label: '50 km', value: '50000' },
+];
 
 function DonorOnboarding({ onComplete }) {
   const [formData, setFormData] = useState({
     bloodGroup: 'O+',
     age: '',
     bmi: '',
-    lastDonatedDate: ''
+    lastDonatedDate: '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -44,49 +59,56 @@ function DonorOnboarding({ onComplete }) {
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700">Blood Group *</label>
-              <select 
+              <select
                 className="w-full p-3 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 value={formData.bloodGroup}
-                onChange={e => setFormData({...formData, bloodGroup: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
                 required
               >
-                {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => (
+                {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bg) => (
                   <option key={bg} value={bg}>{bg}</option>
                 ))}
               </select>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700">Age *</label>
-              <input 
-                type="number" min="18" max="65" placeholder="e.g. 28"
+              <input
+                type="number"
+                min="18"
+                max="65"
+                placeholder="e.g. 28"
                 className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
                 value={formData.age}
-                onChange={e => setFormData({...formData, age: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, age: e.target.value })}
                 required
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700">BMI *</label>
-              <input 
-                type="number" step="0.1" min="18.5" max="30" placeholder="e.g. 22.5"
+              <input
+                type="number"
+                step="0.1"
+                min="18.5"
+                max="30"
+                placeholder="e.g. 22.5"
                 className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
                 value={formData.bmi}
-                onChange={e => setFormData({...formData, bmi: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, bmi: e.target.value })}
                 required
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700">Last Donation Date</label>
-              <input 
+              <input
                 type="date"
                 className="w-full p-3 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary/20"
                 value={formData.lastDonatedDate}
-                onChange={e => setFormData({...formData, lastDonatedDate: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, lastDonatedDate: e.target.value })}
               />
             </div>
           </div>
           <Button type="submit" className="w-full py-4 text-base" disabled={submitting}>
-            {submitting ? "Registering..." : "Register as Volunteer"}
+            {submitting ? 'Registering...' : 'Register as Volunteer'}
           </Button>
         </form>
       </Card>
@@ -96,12 +118,48 @@ function DonorOnboarding({ onComplete }) {
 
 export default function DonorDashboard() {
   const [data, setData] = useState(null);
+  const [campBase, setCampBase] = useState(null);
   const [pendingRequests, setPendingRequests] = useState([]);
+  const [nearbyCamps, setNearbyCamps] = useState([]);
+  const [campFilters, setCampFilters] = useState({
+    radiusMeters: '10000',
+    startDate: '',
+    endDate: '',
+  });
   const [loading, setLoading] = useState(true);
+  const [campLoading, setCampLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [campError, setCampError] = useState(null);
   const [activeMatchActionId, setActiveMatchActionId] = useState(null);
   const [actionMessage, setActionMessage] = useState(null);
   const [actionError, setActionError] = useState(null);
+
+  const loadNearbyCamps = async (dashboardData, filters = campFilters) => {
+    if (!dashboardData?.lat || !dashboardData?.lon) {
+      setNearbyCamps([]);
+      setCampError('Add your location coordinates in your donor profile to discover nearby camps.');
+      return;
+    }
+
+    setCampLoading(true);
+    setCampError(null);
+
+    try {
+      const camps = await searchNearbyCamps({
+        lat: dashboardData.lat,
+        lon: dashboardData.lon,
+        radius_meters: filters.radiusMeters,
+        start_date: filters.startDate || undefined,
+        end_date: filters.endDate || undefined,
+      });
+      setNearbyCamps(camps);
+    } catch (err) {
+      console.error(err);
+      setCampError(err.message || 'Failed to load nearby camps.');
+    } finally {
+      setCampLoading(false);
+    }
+  };
 
   useEffect(() => {
     const loadDonorDashboard = async () => {
@@ -110,12 +168,23 @@ export default function DonorDashboard() {
           getDonorDashboard(),
           getDonorRequests(),
         ]);
+
         setData(dashboard);
         setPendingRequests(requests);
         setError(null);
+
+        if (!dashboard?.needsOnboarding) {
+          const discoveryBase = await getCampDiscoveryBase();
+          setCampBase(discoveryBase);
+          await loadNearbyCamps(discoveryBase, {
+            radiusMeters: '10000',
+            startDate: '',
+            endDate: '',
+          });
+        }
       } catch (err) {
         console.error(err);
-        setError("Failed to load dashboard data.");
+        setError('Failed to load dashboard data.');
       } finally {
         setLoading(false);
       }
@@ -136,17 +205,22 @@ export default function DonorDashboard() {
         previousRequests.filter((request) => request.matchId !== matchId)
       );
       setActionMessage(action === 'accept'
-        ? "Request accepted successfully."
-        : "Request declined successfully.");
+        ? 'Request accepted successfully.'
+        : 'Request declined successfully.');
 
       const refreshedDashboard = await getDonorDashboard();
       setData(refreshedDashboard);
     } catch (err) {
       console.error(err);
-      setActionError(err.message || "Failed to update request status.");
+      setActionError(err.message || 'Failed to update request status.');
     } finally {
       setActiveMatchActionId(null);
     }
+  };
+
+  const handleCampSearch = async (event) => {
+    event.preventDefault();
+    await loadNearbyCamps(campBase, campFilters);
   };
 
   if (loading) {
@@ -173,7 +247,7 @@ export default function DonorDashboard() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-on-surface">Donor Interface</h1>
-        <p className="text-sm text-on-surface-variant font-medium mt-1">Manage your eligibility and track your impact.</p>
+        <p className="text-sm text-on-surface-variant font-medium mt-1">Manage your eligibility, discover nearby camps, and track your impact.</p>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -192,7 +266,7 @@ export default function DonorDashboard() {
               <Badge variant="success">Eligible</Badge>
             )}
           </div>
-          
+
           <div className="space-y-2 pt-4 border-t border-slate-100">
             <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-wider">
               <span>Profile Completion</span>
@@ -211,6 +285,103 @@ export default function DonorDashboard() {
           <h3 className="font-bold text-lg">Total Donations</h3>
           <p className="text-4xl font-black text-primary">{data?.totalDonations}</p>
           <p className="text-xs text-slate-500 font-medium">Lives impacted: ~{data?.livesImpacted}</p>
+        </Card>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-xl font-bold tracking-tight">Nearby Donation Camps</h2>
+          <p className="text-sm text-on-surface-variant">
+            Discover approved blood donation camps near {campBase?.address || 'your saved donor location'}.
+          </p>
+        </div>
+
+        <Card className="space-y-5">
+          <form className="grid lg:grid-cols-[1.2fr_0.8fr_0.8fr_auto] gap-4 items-end" onSubmit={handleCampSearch}>
+            <div className="rounded-2xl bg-surface-container-low p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Discovery Base</p>
+              <div className="flex items-start gap-3 mt-3">
+                <MapPin size={18} className="text-primary mt-0.5" />
+                <div>
+                  <p className="font-semibold text-on-surface">{campBase?.address || 'Location not available'}</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Coordinates: {campBase?.lat || 'N/A'}, {campBase?.lon || 'N/A'}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <Select
+              label="Radius"
+              options={RADIUS_OPTIONS}
+              value={campFilters.radiusMeters}
+              onChange={(e) => setCampFilters((current) => ({ ...current, radiusMeters: e.target.value }))}
+            />
+            <Input
+              label="Start Date"
+              type="date"
+              icon={<CalendarDays size={18} />}
+              value={campFilters.startDate}
+              onChange={(e) => setCampFilters((current) => ({ ...current, startDate: e.target.value }))}
+            />
+            <div className="grid grid-cols-[1fr_auto] gap-3">
+              <Input
+                label="End Date"
+                type="date"
+                icon={<CalendarDays size={18} />}
+                value={campFilters.endDate}
+                onChange={(e) => setCampFilters((current) => ({ ...current, endDate: e.target.value }))}
+              />
+              <Button type="submit" disabled={campLoading} className="self-end">
+                {campLoading ? 'Loading...' : <><Search size={16} /> Search</>}
+              </Button>
+            </div>
+          </form>
+
+          {campError && (
+            <div className="p-3 rounded-lg bg-error-container text-on-error-container text-sm font-semibold">
+              {campError}
+            </div>
+          )}
+
+          <div className="grid xl:grid-cols-2 gap-4">
+            {nearbyCamps.length > 0 ? nearbyCamps.map((camp) => (
+              <Card key={camp.id} className="space-y-4 border border-slate-100">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <TentTree size={18} className="text-primary" />
+                      <h3 className="font-bold text-base text-on-surface">{camp.name}</h3>
+                    </div>
+                    <p className="text-xs text-slate-500 font-medium mt-2">{camp.venueName}</p>
+                  </div>
+                  <Badge variant="success">{camp.distanceKm ? `${camp.distanceKm} km` : 'Nearby'}</Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-xl bg-surface-container-low p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Date</p>
+                    <p className="font-semibold text-on-surface mt-2">{camp.dateLabel}</p>
+                  </div>
+                  <div className="rounded-xl bg-surface-container-low p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Time</p>
+                    <p className="font-semibold text-on-surface mt-2">{camp.timeLabel}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2 text-sm text-slate-600">
+                  <p><span className="font-semibold text-on-surface">Address:</span> {camp.address}</p>
+                  <p><span className="font-semibold text-on-surface">Organiser:</span> {camp.organiserName}</p>
+                  <p><span className="font-semibold text-on-surface">Capacity:</span> {camp.capacity ? camp.capacity : 'Open attendance'}</p>
+                </div>
+              </Card>
+            )) : (
+              !campLoading && (
+                <Card className="xl:col-span-2 text-center">
+                  <p className="text-sm text-slate-500">No approved camps found for the current filters.</p>
+                </Card>
+              )
+            )}
+          </div>
         </Card>
       </div>
 
@@ -253,14 +424,14 @@ export default function DonorDashboard() {
                     onClick={() => handleMatchAction(request.matchId, 'accept')}
                     disabled={activeMatchActionId === request.matchId}
                   >
-                    {activeMatchActionId === request.matchId ? "Processing..." : "Accept"}
+                    {activeMatchActionId === request.matchId ? 'Processing...' : 'Accept'}
                   </Button>
                   <Button
                     variant="secondary"
                     onClick={() => handleMatchAction(request.matchId, 'reject')}
                     disabled={activeMatchActionId === request.matchId}
                   >
-                    {activeMatchActionId === request.matchId ? "Processing..." : "Decline"}
+                    {activeMatchActionId === request.matchId ? 'Processing...' : 'Decline'}
                   </Button>
                 </div>
               </Card>

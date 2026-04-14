@@ -120,7 +120,7 @@ export default function ProfileSettings() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-bold text-sm">Email Updates</p>
-                  <p className="text-xs text-slate-500">Receive weekly donation camp schedules and system updates.</p>
+                  <p className="text-xs text-slate-500">Receive product and platform updates by email. This preference is saved with your donor profile.</p>
                 </div>
                 <div 
                   className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors ${data?.notifications?.emailUpdates ? 'bg-primary' : 'bg-slate-200'}`}

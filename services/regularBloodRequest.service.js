@@ -15,6 +15,16 @@ function normalizeDateInput(value) {
   return d.toISOString().slice(0, 10);
 }
 
+function buildNotificationSummary(request) {
+  return {
+    total_notifications: Number(request.total_notifications || 0),
+    sent_notifications: Number(request.sent_notifications || 0),
+    failed_notifications: Number(request.failed_notifications || 0),
+    pending_notifications: Number(request.pending_notifications || 0),
+    last_notified_at: request.last_notified_at || null,
+  };
+}
+
 async function createRegularRequest({
   hospital_id,
   blood_group,
@@ -71,6 +81,55 @@ async function createRegularRequest({
   };
 }
 
+async function listRegularRequests({
+  hospital_id,
+  limit = 50,
+  offset = 0,
+}) {
+  const requests = await RegularBloodRequest.getRegularBloodRequestsByHospitalId({
+    hospital_id,
+    limit: Number(limit),
+    offset: Number(offset),
+  });
+
+  return {
+    ok: true,
+    status: 200,
+    requests: requests.map((request) => ({
+      ...request,
+      notification_summary: buildNotificationSummary(request),
+    })),
+  };
+}
+
+async function getRegularRequestDetails({
+  hospital_id,
+  request_id,
+}) {
+  const request = await RegularBloodRequest.getRegularBloodRequestByIdForHospital({
+    request_id: Number(request_id),
+    hospital_id,
+  });
+
+  if (!request) {
+    return { ok: false, status: 404, error: "Regular blood request not found" };
+  }
+
+  const notifications = await RegularBloodRequest.getNotificationsByRegularRequestId(request.id);
+
+  return {
+    ok: true,
+    status: 200,
+    request: {
+      ...request,
+      notification_summary: buildNotificationSummary(request),
+      notifications,
+    },
+  };
+}
+
 module.exports = {
   createRegularRequest,
+  listRegularRequests,
+  getRegularRequestDetails,
 };

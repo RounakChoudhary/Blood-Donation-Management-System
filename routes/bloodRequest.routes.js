@@ -13,6 +13,6 @@ const {
 router.post("/", hospitalAuth, bloodRequestLimiter, createRequest);
 router.get("/mine", hospitalAuth, listMyRequests);
 router.get("/:id", hospitalAuth, getRequestById);
-router.post("/:id/match", hospitalAuth, rematch);
+router.post("/:id/match", hospitalAuth, bloodRequestLimiter, rematch);
 
 module.exports = router;

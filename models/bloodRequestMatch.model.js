@@ -122,6 +122,7 @@ async function getMatchResponseContext(match_id) {
         m.id AS match_id,
         m.status AS match_status,
         m.donor_id,
+        m.distance_meters,
         d.user_id AS donor_user_id,
         u.full_name AS donor_name,
         u.email AS donor_email,
@@ -253,6 +254,38 @@ async function countAcceptedMatchesByRequestId(requestId) {
   return rows[0]?.count ?? 0;
 }
 
+async function getEmergencyResponseReportSummary() {
+  const { rows } = await pool.query(
+    `
+      SELECT
+        COUNT(*)::INT AS total_matches,
+        COUNT(*) FILTER (WHERE m.status = 'accepted')::INT AS accepted_matches,
+        COUNT(*) FILTER (WHERE m.status = 'declined')::INT AS declined_matches,
+        COUNT(*) FILTER (WHERE m.status = 'no_response')::INT AS no_response_matches,
+        COUNT(*) FILTER (WHERE m.status IN ('pending', 'notified'))::INT AS awaiting_response_matches,
+        ROUND(
+          AVG(
+            EXTRACT(EPOCH FROM (m.responded_at - m.created_at)) / 60.0
+          ) FILTER (WHERE m.responded_at IS NOT NULL),
+          2
+        ) AS avg_response_minutes
+      FROM blood_request_matches m
+      JOIN blood_requests br
+        ON br.id = m.request_id
+      WHERE br.is_deleted = false
+    `
+  );
+
+  return rows[0] || {
+    total_matches: 0,
+    accepted_matches: 0,
+    declined_matches: 0,
+    no_response_matches: 0,
+    awaiting_response_matches: 0,
+    avg_response_minutes: null,
+  };
+}
+
 module.exports = {
   getPendingMatchesForDonor,
   getMatchById,
@@ -264,4 +297,5 @@ module.exports = {
   getMatchesByRequestId,
   countMatchesByRequestId,
   countAcceptedMatchesByRequestId,
+  getEmergencyResponseReportSummary,
 };

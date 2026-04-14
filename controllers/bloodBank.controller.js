@@ -72,6 +72,48 @@ async function createRegularRequest(req, res) {
   }
 }
 
+async function listRegularRequests(req, res) {
+  try {
+    const result = await regularBloodRequestService.listRegularRequests({
+      hospital_id: req.hospital.id,
+      limit: req.query.limit,
+      offset: req.query.offset,
+    });
+
+    return res.status(result.status).json({
+      requests: result.requests,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+}
+
+async function getRegularRequestDetails(req, res) {
+  try {
+    const requestId = Number(req.params.id);
+    if (!Number.isInteger(requestId) || requestId <= 0) {
+      return res.status(400).json({ error: "Invalid regular request ID" });
+    }
+
+    const result = await regularBloodRequestService.getRegularRequestDetails({
+      hospital_id: req.hospital.id,
+      request_id: requestId,
+    });
+
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    return res.status(result.status).json({
+      request: result.request,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+}
+
 async function adjustInventory(req, res) {
   try {
     const result = await bloodBankService.adjustInventory({
@@ -97,5 +139,7 @@ module.exports = {
   getNearby,
   getDashboard,
   createRegularRequest,
+  listRegularRequests,
+  getRegularRequestDetails,
   adjustInventory,
 };

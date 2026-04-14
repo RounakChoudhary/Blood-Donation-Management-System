@@ -6,7 +6,12 @@ const PORT = process.env.PORT || 3000;
 
 require("./models/db");
 
+const requestContext = require("./middleware/requestContext.middleware");
+const requestLogger = require("./middleware/requestLogger.middleware");
+
 app.use(express.json());
+app.use(requestContext);
+app.use(requestLogger);
 
 // Local-dev friendly CORS support.
 // Explicit origins can be configured via ALLOWED_ORIGINS (comma-separated).
@@ -50,7 +55,10 @@ const bloodBankRoutes = require("./routes/bloodBank.routes");
 const bloodCampRoutes = require("./routes/bloodCamp.routes");
 const adminRoutes = require("./routes/admin.routes");
 const apiRoutes = require("./routes/api.routes");
+const systemRoutes = require("./routes/system.routes");
+const { startBackgroundJobs } = require("./services/scheduler.service");
 
+app.use("/", systemRoutes);
 app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
 app.use("/donors", donorRoutes);
@@ -69,4 +77,5 @@ app.get("/", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  startBackgroundJobs();
 });

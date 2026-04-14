@@ -37,6 +37,32 @@ export const getAdminDashboard = async () => {
   }
 };
 
+export const getAdminReports = async () => {
+  const token = getStoredToken();
+
+  if (!token) {
+    throw new Error("Admin auth token not found. Please login again.");
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/admin/reports`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch admin reports (${response.status})`);
+    }
+
+    const payload = await response.json();
+    return payload?.reports || {};
+  } catch (error) {
+    throw new Error(error.message || "Failed to fetch admin reports.");
+  }
+};
+
 export const getAdminUsers = async ({ search = "", limit = 10, page = 1 } = {}) => {
   const token = getStoredToken();
   if (!token) {

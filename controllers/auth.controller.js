@@ -1,9 +1,19 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const pool = require("../models/db");
 const User = require("../models/user.model");
+const Donor = require("../models/donor.model");
 const otpService = require("../services/otp.service");
 const passwordResetService = require("../services/passwordReset.service");
-const { validateEmail, validatePhone, validatePassword, validateCoordinates } = require("../utils/validation");
+const {
+  validateEmail,
+  validatePhone,
+  validatePassword,
+  validateRequiredText,
+  validateCoordinates,
+  validateDateOfBirth,
+  validateBloodGroup,
+} = require("../utils/validation");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const BCRYPT_ROUNDS = Number(process.env.BCRYPT_ROUNDS || 12);
@@ -29,11 +39,23 @@ function signToken(user) {
 
 async function register(req, res) {
   try {
-    const { full_name, email, password, phone, lon, lat } = req.body;
+    const {
+      full_name,
+      email,
+      password,
+      phone,
+      lon,
+      lat,
+      date_of_birth,
+      blood_group,
+      address,
+      emergency_contact_name,
+      emergency_contact_phone,
+    } = req.body;
 
-    // Validate required fields
-    if (!full_name || typeof full_name !== 'string' || full_name.trim().length < 2) {
-      return res.status(400).json({ error: "Full name is required and must be at least 2 characters" });
+    const nameValidation = validateRequiredText(full_name, "full_name");
+    if (!nameValidation.isValid) {
+      return res.status(400).json({ error: nameValidation.error });
     }
 
     const emailValidation = validateEmail(email);
@@ -51,16 +73,41 @@ async function register(req, res) {
       return res.status(400).json({ error: phoneValidation.error });
     }
 
-    // Validate coordinates if provided
-    let validatedLat = null;
-    let validatedLon = null;
-    if (lon !== undefined && lat !== undefined) {
-      const coordValidation = validateCoordinates(lat, lon);
-      if (!coordValidation.isValid) {
-        return res.status(400).json({ error: coordValidation.error });
-      }
-      validatedLat = coordValidation.lat;
-      validatedLon = coordValidation.lon;
+    const coordValidation = validateCoordinates(lat, lon);
+    if (!coordValidation.isValid) {
+      return res.status(400).json({ error: coordValidation.error });
+    }
+
+    const dobValidation = validateDateOfBirth(date_of_birth);
+    if (!dobValidation.isValid) {
+      return res.status(400).json({ error: dobValidation.error });
+    }
+
+    const bloodGroupValidation = validateBloodGroup(blood_group);
+    if (!bloodGroupValidation.isValid) {
+      return res.status(400).json({ error: bloodGroupValidation.error });
+    }
+
+    const addressValidation = validateRequiredText(address, "address", 5);
+    if (!addressValidation.isValid) {
+      return res.status(400).json({ error: addressValidation.error });
+    }
+
+    const emergencyNameValidation = validateRequiredText(
+      emergency_contact_name,
+      "emergency_contact_name"
+    );
+    if (!emergencyNameValidation.isValid) {
+      return res.status(400).json({ error: emergencyNameValidation.error });
+    }
+
+    const emergencyPhoneValidation = validatePhone(emergency_contact_phone);
+    if (!emergencyPhoneValidation.isValid) {
+      return res.status(400).json({ error: `emergency_contact_phone: ${emergencyPhoneValidation.error}` });
+    }
+
+    if (emergencyPhoneValidation.value === phoneValidation.value) {
+      return res.status(400).json({ error: "emergency_contact_phone must be different from phone" });
     }
 
     const conflicts = [];
@@ -83,15 +130,39 @@ async function register(req, res) {
 
     const password_hash = await bcrypt.hash(passwordValidation.value, BCRYPT_ROUNDS);
 
-    const user = await User.createUser({
-      full_name: full_name.trim(),
-      email: emailValidation.value,
-      password_hash,
-      phone: phoneValidation.value,
-      lon: validatedLon,
-      lat: validatedLat,
-      role: "user",
-    });
+    const client = await pool.connect();
+    let user;
+    let donor;
+
+    try {
+      await client.query("BEGIN");
+
+      user = await User.createUser({
+        full_name: nameValidation.value,
+        email: emailValidation.value,
+        password_hash,
+        phone: phoneValidation.value,
+        lon: coordValidation.lon,
+        lat: coordValidation.lat,
+        role: "user",
+      }, client);
+
+      donor = await Donor.createDonor({
+        user_id: user.id,
+        blood_group: bloodGroupValidation.value,
+        date_of_birth: dobValidation.value,
+        address: addressValidation.value,
+        emergency_contact_name: emergencyNameValidation.value,
+        emergency_contact_phone: emergencyPhoneValidation.value,
+      }, client);
+
+      await client.query("COMMIT");
+    } catch (transactionError) {
+      await client.query("ROLLBACK");
+      throw transactionError;
+    } finally {
+      client.release();
+    }
 
     await otpService.issueEmailVerificationOtp(user);
 
@@ -106,6 +177,14 @@ async function register(req, res) {
         email_verified: user.email_verified,
         is_active: user.is_active,
         created_at: user.created_at,
+      },
+      donor: {
+        id: donor.id,
+        blood_group: donor.blood_group,
+        date_of_birth: donor.date_of_birth,
+        address: donor.address,
+        emergency_contact_name: donor.emergency_contact_name,
+        emergency_contact_phone: donor.emergency_contact_phone,
       },
     });
   } catch (err) {
@@ -178,6 +257,8 @@ async function verifyOtp(req, res) {
       return res.status(result.status).json({ error: result.error });
     }
 
+    const donor = await Donor.getDonorByUserId(result.user.id);
+
     return res.status(result.status).json({
       message: result.already_verified
         ? "Account is already verified"
@@ -192,6 +273,12 @@ async function verifyOtp(req, res) {
         is_active: result.user.is_active,
         created_at: result.user.created_at,
       },
+      donor: donor
+        ? {
+            id: donor.id,
+            blood_group: donor.blood_group,
+          }
+        : null,
     });
   } catch (err) {
     console.error(err);

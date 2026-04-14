@@ -3,6 +3,7 @@ const donorModel = require("../models/donor.model");
 const hospitalModel = require("../models/hospital.model");
 const bloodBankModel = require("../models/bloodBank.model");
 const bloodRequestModel = require("../models/bloodRequest.model");
+const bloodRequestMatchModel = require("../models/bloodRequestMatch.model");
 const donationRecordModel = require("../models/donationRecord.model");
 const systemConfigModel = require("../models/systemConfig.model");
 const auditService = require("./audit.service");
@@ -191,16 +192,56 @@ async function getAllBloodRequests(limit = 50, offset = 0, search = "") {
 }
 
 async function getReports() {
-  const [totalDonors, totalRequests, totalSuccessfulDonations] = await Promise.all([
+  const [
+    totalDonors,
+    donationSummary,
+    donationByBloodGroup,
+    emergencyRequestSummary,
+    emergencyStatusBreakdown,
+    emergencyResponseSummary,
+  ] = await Promise.all([
     donorModel.countDonors(),
-    bloodRequestModel.countBloodRequests(),
-    donationRecordModel.countDonationRecords(),
+    donationRecordModel.getDonationReportSummary(),
+    donationRecordModel.getDonationReportByBloodGroup(),
+    bloodRequestModel.getEmergencyRequestReportSummary(),
+    bloodRequestModel.getBloodRequestStatusBreakdown(),
+    bloodRequestMatchModel.getEmergencyResponseReportSummary(),
   ]);
 
   return {
-    total_donors: totalDonors,
-    total_requests: totalRequests,
-    total_successful_donations: totalSuccessfulDonations,
+    donation_report: {
+      total_donors: totalDonors,
+      total_donation_records: Number(donationSummary.total_records || 0),
+      total_units_donated: Number(donationSummary.total_units || 0),
+      unique_donors: Number(donationSummary.unique_donors || 0),
+      unique_hospitals: Number(donationSummary.unique_hospitals || 0),
+      latest_donation_date: donationSummary.latest_donation_date || null,
+      by_blood_group: donationByBloodGroup.map((item) => ({
+        blood_group: item.blood_group,
+        donation_count: Number(item.donation_count || 0),
+        total_units: Number(item.total_units || 0),
+      })),
+    },
+    emergency_response_report: {
+      total_requests: Number(emergencyRequestSummary.total_requests || 0),
+      total_units_requested: Number(emergencyRequestSummary.total_units_requested || 0),
+      fulfilled_requests: Number(emergencyRequestSummary.fulfilled_requests || 0),
+      cancelled_requests: Number(emergencyRequestSummary.cancelled_requests || 0),
+      open_requests: Number(emergencyRequestSummary.open_requests || 0),
+      status_breakdown: emergencyStatusBreakdown.map((item) => ({
+        status: item.status,
+        request_count: Number(item.request_count || 0),
+      })),
+      total_matches: Number(emergencyResponseSummary.total_matches || 0),
+      accepted_matches: Number(emergencyResponseSummary.accepted_matches || 0),
+      declined_matches: Number(emergencyResponseSummary.declined_matches || 0),
+      no_response_matches: Number(emergencyResponseSummary.no_response_matches || 0),
+      awaiting_response_matches: Number(emergencyResponseSummary.awaiting_response_matches || 0),
+      average_response_minutes:
+        emergencyResponseSummary.avg_response_minutes === null
+          ? null
+          : Number(emergencyResponseSummary.avg_response_minutes),
+    },
   };
 }
 
