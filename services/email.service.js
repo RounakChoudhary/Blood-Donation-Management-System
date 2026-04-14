@@ -1,7 +1,15 @@
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 
 function normalizeBaseUrl(value) {
   return String(value || "").trim().replace(/\/$/, "");
+}
+
+function getEmailFromAddress() {
+  const fromAddress = String(process.env.EMAIL_FROM || "").trim();
+  if (!fromAddress) {
+    throw new Error("EMAIL_FROM is not set");
+  }
+  return fromAddress;
 }
 
 function getAppBaseUrl() {
@@ -12,18 +20,27 @@ function getAppBaseUrl() {
   return appBaseUrl;
 }
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: false,
-  family: 4,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-});
+const resendApiKey = String(process.env.RESEND_API_KEY || "").trim();
+
+if (!resendApiKey) {
+  throw new Error("RESEND_API_KEY is not set");
+}
+
+const resend = new Resend(resendApiKey);
+
+async function sendEmail({ to, subject, text }) {
+  const response = await resend.emails.send({
+    from: getEmailFromAddress(),
+    to,
+    subject,
+    text,
+  });
+
+  return {
+    messageId: response.data?.id || null,
+    raw: response,
+  };
+}
 
 async function sendEmergencyEmail({
   to,
@@ -50,17 +67,7 @@ ${declineLink}
 These links expire in 2 hours and can be used only once.
 `;
 
-  const info = await transporter.sendMail({
-    from: `"Blood Donation System" <${process.env.SMTP_USER}>`,
-    to,
-    subject,
-    text,
-  });
-
-  return {
-    messageId: info.messageId,
-    raw: info,
-  };
+  return await sendEmail({ to, subject, text });
 }
 
 async function sendHospitalDonorAcceptanceEmail({
@@ -82,17 +89,7 @@ Donor mobile: ${donorPhone || "Not provided"}
 Blood group: ${bloodGroup}
 `;
 
-  const info = await transporter.sendMail({
-    from: `"Blood Donation System" <${process.env.SMTP_USER}>`,
-    to,
-    subject,
-    text,
-  });
-
-  return {
-    messageId: info.messageId,
-    raw: info,
-  };
+  return await sendEmail({ to, subject, text });
 }
 
 async function sendOtpEmail({ to, otp, expiresInMinutes }) {
@@ -105,17 +102,7 @@ This code expires in ${expiresInMinutes} minutes.
 If you did not request this registration, ignore this email.
 `;
 
-  const info = await transporter.sendMail({
-    from: `"Blood Donation System" <${process.env.SMTP_USER}>`,
-    to,
-    subject,
-    text,
-  });
-
-  return {
-    messageId: info.messageId,
-    raw: info,
-  };
+  return await sendEmail({ to, subject, text });
 }
 
 async function sendPasswordResetEmail({ to, token, expiresInMinutes }) {
@@ -133,17 +120,7 @@ This link expires in ${expiresInMinutes} minutes and can be used only once.
 If you did not request a password reset, ignore this email.
 `;
 
-  const info = await transporter.sendMail({
-    from: `"Blood Donation System" <${process.env.SMTP_USER}>`,
-    to,
-    subject,
-    text,
-  });
-
-  return {
-    messageId: info.messageId,
-    raw: info,
-  };
+  return await sendEmail({ to, subject, text });
 }
 
 async function sendCampStatusEmail({ to, campName, status }) {
@@ -158,17 +135,7 @@ Thank you,
 Blood Donation System
 `;
 
-  const info = await transporter.sendMail({
-    from: `"Blood Donation System" <${process.env.SMTP_USER}>`,
-    to,
-    subject,
-    text,
-  });
-
-  return {
-    messageId: info.messageId,
-    raw: info,
-  };
+  return await sendEmail({ to, subject, text });
 }
 
 async function sendRegularBloodRequestEmail({
@@ -190,17 +157,7 @@ ${notes ? `Notes: ${notes}\n` : ""}
 Please contact the hospital through the BDMS workflow.
 `;
 
-  const info = await transporter.sendMail({
-    from: `"Blood Donation System" <${process.env.SMTP_USER}>`,
-    to,
-    subject,
-    text,
-  });
-
-  return {
-    messageId: info.messageId,
-    raw: info,
-  };
+  return await sendEmail({ to, subject, text });
 }
 
 async function sendHospitalVerificationEmail({
@@ -227,17 +184,7 @@ Regards,
 Blood Donation System
 `;
 
-  const info = await transporter.sendMail({
-    from: `"Blood Donation System" <${process.env.SMTP_USER}>`,
-    to,
-    subject,
-    text,
-  });
-
-  return {
-    messageId: info.messageId,
-    raw: info,
-  };
+  return await sendEmail({ to, subject, text });
 }
 
 async function sendBloodBankVerificationEmail({
@@ -264,17 +211,7 @@ Regards,
 Blood Donation System
 `;
 
-  const info = await transporter.sendMail({
-    from: `"Blood Donation System" <${process.env.SMTP_USER}>`,
-    to,
-    subject,
-    text,
-  });
-
-  return {
-    messageId: info.messageId,
-    raw: info,
-  };
+  return await sendEmail({ to, subject, text });
 }
 
 module.exports = {
