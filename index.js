@@ -17,8 +17,6 @@ app.use(requestLogger);
 // Explicit origins can be configured via ALLOWED_ORIGINS (comma-separated).
 const cors = require("cors");
 
-const cors = require("cors");
-
 app.use(
   cors({
     origin: true,
