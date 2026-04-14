@@ -11,6 +11,9 @@ const requestContext = require("./middleware/requestContext.middleware");
 const requestLogger = require("./middleware/requestLogger.middleware");
 const { startBackgroundJobs } = require("./services/scheduler.service");
 
+// Railway sits behind a proxy, so trust the first forwarded hop for IP-based middleware.
+app.set("trust proxy", 1);
+
 function normalizeOrigin(origin) {
   return String(origin || "").trim().replace(/\/$/, "");
 }
@@ -20,22 +23,6 @@ const allowedOrigins = [
   "http://localhost:5173",
 ].map(normalizeOrigin).filter(Boolean);
 
-function isAllowedVercelPreviewOrigin(origin) {
-  const vercelProject = String(process.env.VERCEL_PROJECT_NAME || "").trim();
-  const normalizedOrigin = normalizeOrigin(origin);
-
-  if (!vercelProject) {
-    return false;
-  }
-
-  try {
-    const { hostname } = new URL(normalizedOrigin);
-    return hostname === `${vercelProject}.vercel.app` || hostname.startsWith(`${vercelProject}-`);
-  } catch {
-    return false;
-  }
-}
-
 const corsOptions = {
   origin(origin, callback) {
     if (!origin) {
@@ -43,10 +30,7 @@ const corsOptions = {
     }
 
     const normalizedOrigin = normalizeOrigin(origin);
-    if (
-      allowedOrigins.includes(normalizedOrigin) ||
-      isAllowedVercelPreviewOrigin(normalizedOrigin)
-    ) {
+    if (allowedOrigins.includes(normalizedOrigin)) {
       return callback(null, true);
     }
 
