@@ -1,45 +1,110 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const Hospital = require("../models/hospital.model");
+const {
+  validateEmail,
+  validatePhone,
+  validateCoordinates,
+  validateRequiredText,
+} = require("../utils/validation");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const BCRYPT_ROUNDS = 12;
+const ALLOWED_HOSPITAL_TYPES = new Set(["Government", "Private", "Trust"]);
 
 function isLocked(lockedUntil) {
   return Boolean(lockedUntil && new Date(lockedUntil).getTime() > Date.now());
 }
 
-async function registerHospital({ name, phone, email, address, lon, lat }) {
-  if (!name || !phone || !email) {
-    return { ok: false, status: 400, error: "Missing fields" };
+function normalizeHospitalType(value) {
+  if (!value || typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "government") return "Government";
+  if (normalized === "private") return "Private";
+  if (normalized === "trust") return "Trust";
+  return null;
+}
+
+async function registerHospital({
+  name,
+  phone,
+  email,
+  address,
+  license_number,
+  emergency_contact_phone,
+  hospital_type,
+  lon,
+  lat,
+}) {
+  const nameValidation = validateRequiredText(name, "name");
+  if (!nameValidation.isValid) {
+    return { ok: false, status: 400, error: nameValidation.error };
   }
 
-  if (
-    lon === undefined ||
-    lat === undefined ||
-    Number.isNaN(Number(lon)) ||
-    Number.isNaN(Number(lat))
-  ) {
-    return { ok: false, status: 400, error: "Valid lon and lat are required" };
+  const phoneValidation = validatePhone(phone);
+  if (!phoneValidation.isValid) {
+    return { ok: false, status: 400, error: phoneValidation.error };
   }
 
-  const existingPhone = await Hospital.getHospitalByPhone(phone);
+  const emailValidation = validateEmail(email);
+  if (!emailValidation.isValid) {
+    return { ok: false, status: 400, error: emailValidation.error };
+  }
+
+  const addressValidation = validateRequiredText(address, "address", 5);
+  if (!addressValidation.isValid) {
+    return { ok: false, status: 400, error: addressValidation.error };
+  }
+
+  const licenseValidation = validateRequiredText(license_number, "license_number", 4);
+  if (!licenseValidation.isValid) {
+    return { ok: false, status: 400, error: licenseValidation.error };
+  }
+
+  const emergencyPhoneValidation = validatePhone(emergency_contact_phone);
+  if (!emergencyPhoneValidation.isValid) {
+    return { ok: false, status: 400, error: `emergency_contact_phone: ${emergencyPhoneValidation.error}` };
+  }
+
+  const normalizedHospitalType = normalizeHospitalType(hospital_type);
+  if (!normalizedHospitalType || !ALLOWED_HOSPITAL_TYPES.has(normalizedHospitalType)) {
+    return { ok: false, status: 400, error: "hospital_type must be Government, Private, or Trust" };
+  }
+
+  const coordValidation = validateCoordinates(lat, lon);
+  if (!coordValidation.isValid) {
+    return { ok: false, status: 400, error: coordValidation.error };
+  }
+
+  if (emergencyPhoneValidation.value === phoneValidation.value) {
+    return { ok: false, status: 400, error: "emergency_contact_phone must be different from phone" };
+  }
+
+  const existingPhone = await Hospital.getHospitalByPhone(phoneValidation.value);
   if (existingPhone) {
     return { ok: false, status: 409, error: "phone already registered" };
   }
   
-  const existingEmail = await Hospital.getHospitalByEmail(email);
+  const existingEmail = await Hospital.getHospitalByEmail(emailValidation.value);
   if (existingEmail) {
     return { ok: false, status: 409, error: "email already registered" };
   }
 
+  const existingLicense = await Hospital.getHospitalByLicenseNumber(licenseValidation.value);
+  if (existingLicense) {
+    return { ok: false, status: 409, error: "license_number already registered" };
+  }
+
   const hospital = await Hospital.createHospital({
-    name,
-    phone,
-    email,
-    address: address ?? null,
-    lon: Number(lon),
-    lat: Number(lat),
+    name: nameValidation.value,
+    phone: phoneValidation.value,
+    email: emailValidation.value,
+    address: addressValidation.value,
+    license_number: licenseValidation.value,
+    emergency_contact_phone: emergencyPhoneValidation.value,
+    hospital_type: normalizedHospitalType,
+    lon: coordValidation.lon,
+    lat: coordValidation.lat,
   });
 
   return {

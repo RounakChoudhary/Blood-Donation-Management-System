@@ -29,7 +29,7 @@ export const getProfileSettings = async () => {
     isEligible: !donor.cooldown_active && donor.availability_status !== 'unavailable',
     notifications: {
       emergencyAlerts: donor.eligible_for_notifications || true,
-      emailUpdates: false 
+      emailUpdates: donor.email_updates_enabled ?? true 
     }
   };
 };
@@ -41,6 +41,7 @@ export const updateProfile = async (data) => {
   const payload = {
     phone: data.phoneNumber,
     address: data.location,
+    email_updates_enabled: Boolean(data.notifications?.emailUpdates),
     // We intentionally don't send bloodGroup or email since they can't be changed via this endpoint
   };
 

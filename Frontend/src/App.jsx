@@ -5,6 +5,7 @@ import Auth from './pages/Auth';
 import DonorDashboard from './pages/DonorDashboard';
 import HospitalDashboard from './pages/HospitalDashboard';
 import BloodBankDashboard from './pages/BloodBankDashboard';
+import CampOrganizer from './pages/CampOrganizer';
 import AdminLayout from './pages/AdminLayout';
 import AdminOverview from './pages/AdminOverview';
 import AdminUsers from './pages/AdminUsers';
@@ -49,6 +50,9 @@ function App() {
         <Route path="/login" element={<GuestRoute><Auth mode="login" /></GuestRoute>} />
         <Route path="/register" element={<GuestRoute><Auth mode="register" /></GuestRoute>} />
         <Route path="/verify-otp" element={<Auth mode="otp" />} />
+        <Route path="/forgot-password" element={<GuestRoute><Auth mode="forgot-password" /></GuestRoute>} />
+        <Route path="/reset-password" element={<GuestRoute><Auth mode="reset-password" /></GuestRoute>} />
+        <Route path="/organize-camp" element={<CampOrganizer />} />
 
         {/* Dashboard Routes — only accessible when logged in */}
         <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>

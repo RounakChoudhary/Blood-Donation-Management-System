@@ -45,11 +45,35 @@ export const isLoggedIn = () => {
   return !!localStorage.getItem("token");
 };
 
-export const register = async ({ full_name, email, password, phone, lon, lat }) => {
+export const register = async ({
+  full_name,
+  email,
+  password,
+  phone,
+  lon,
+  lat,
+  date_of_birth,
+  blood_group,
+  address,
+  emergency_contact_name,
+  emergency_contact_phone,
+}) => {
   const response = await fetch(`${API_BASE_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ full_name, email, password, phone, lon, lat }),
+    body: JSON.stringify({
+      full_name,
+      email,
+      password,
+      phone,
+      lon,
+      lat,
+      date_of_birth,
+      blood_group,
+      address,
+      emergency_contact_name,
+      emergency_contact_phone,
+    }),
   });
 
   const data = await response.json();
@@ -75,11 +99,61 @@ export const verifyOtp = async (email, otp) => {
   return data; // { message, user }
 };
 
-export const registerHospital = async ({ name, phone, email, address, lon, lat }) => {
+export const forgotPassword = async (email) => {
+  const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || data.message || "Password reset request failed");
+  }
+
+  return data;
+};
+
+export const resetPassword = async ({ token, new_password }) => {
+  const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, new_password }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || data.message || "Password reset failed");
+  }
+
+  return data;
+};
+
+export const registerHospital = async ({
+  name,
+  phone,
+  email,
+  address,
+  license_number,
+  emergency_contact_phone,
+  hospital_type,
+  lon,
+  lat,
+}) => {
   const response = await fetch(`${API_BASE_URL}/hospitals/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, phone, email, address, lon, lat }),
+    body: JSON.stringify({
+      name,
+      phone,
+      email,
+      address,
+      license_number,
+      emergency_contact_phone,
+      hospital_type,
+      lon,
+      lat,
+    }),
   });
 
   const data = await response.json();

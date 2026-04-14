@@ -1,27 +1,46 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Card from '../components/Card';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import Select from '../components/Select';
 import { User, Mail, Lock, KeyRound, Droplet, Phone, MapPin, Map } from 'lucide-react';
-import { login, register, verifyOtp, registerHospital, loginHospital, registerBloodBank, loginBloodBank } from '../services/authService';
+import {
+  login,
+  register,
+  verifyOtp,
+  registerHospital,
+  loginHospital,
+  registerBloodBank,
+  loginBloodBank,
+  forgotPassword,
+  resetPassword,
+} from '../services/authService';
 
 export default function Auth({ mode = 'login' }) {
   const navigate = useNavigate();
-  const [role, setRole] = useState('donor'); 
+  const [searchParams] = useSearchParams();
+  const resetToken = searchParams.get('token') || '';
+
+  const [role, setRole] = useState('donor');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
-  
-  // Shared location states
-  const [address, setAddress] = useState('');
-  const [lat, setLat] = useState(''); 
-  const [lon, setLon] = useState('');
+  const [bloodGroup, setBloodGroup] = useState('O+');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [emergencyContactName, setEmergencyContactName] = useState('');
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
 
-  // Blood Bank specific states
+  const [address, setAddress] = useState('');
+  const [lat, setLat] = useState('');
+  const [lon, setLon] = useState('');
+  const [hospitalLicenseNumber, setHospitalLicenseNumber] = useState('');
+  const [hospitalEmergencyContactPhone, setHospitalEmergencyContactPhone] = useState('');
+  const [hospitalType, setHospitalType] = useState('Government');
+
   const [licenseNumber, setLicenseNumber] = useState('');
   const [contactPerson, setContactPerson] = useState('');
 
@@ -29,20 +48,26 @@ export default function Auth({ mode = 'login' }) {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
-  const roleOptions = mode === 'register' 
+  const donorBloodGroupOptions = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  const hospitalTypeOptions = [
+    { label: 'Government', value: 'Government' },
+    { label: 'Private', value: 'Private' },
+    { label: 'Trust', value: 'Trust' },
+  ];
+
+  const roleOptions = mode === 'register'
     ? [
         { label: 'Donor / User', value: 'donor' },
         { label: 'Hospital', value: 'hospital' },
-        { label: 'Blood Bank', value: 'bloodbank' }
+        { label: 'Blood Bank', value: 'bloodbank' },
       ]
     : [
         { label: 'Donor / Admin', value: 'donor' },
         { label: 'Hospital', value: 'hospital' },
-        { label: 'Blood Bank', value: 'bloodbank' }
+        { label: 'Blood Bank', value: 'bloodbank' },
       ];
 
   const handleLogin = async () => {
-    
     if (!email || !password) {
       setError('Please enter both email and password.');
       return;
@@ -54,10 +79,10 @@ export default function Auth({ mode = 'login' }) {
     try {
       let userRole;
       if (role === 'hospital') {
-        const data = await loginHospital(email, password);
+        await loginHospital(email, password);
         userRole = 'hospital';
       } else if (role === 'bloodbank') {
-        const data = await loginBloodBank(email, password);
+        await loginBloodBank(email, password);
         userRole = 'bloodbank';
       } else {
         const data = await login(email, password);
@@ -86,19 +111,21 @@ export default function Auth({ mode = 'login' }) {
         setError('Please fill in all blood bank fields.');
         return;
       }
+
       setLoading(true);
       setError(null);
       setSuccess(null);
 
       try {
-        const data = await registerBloodBank({ 
-          name, 
-          license_number: licenseNumber, 
-          contact_person: contactPerson, 
-          contact_phone: phone, 
+        const data = await registerBloodBank({
+          name,
+          license_number: licenseNumber,
+          contact_person: contactPerson,
+          contact_phone: phone,
           email,
-          address, 
-          lon, lat 
+          address,
+          lon,
+          lat,
         });
         setSuccess(data.message || 'Blood Bank registered successfully! Please wait for Admin approval.');
         setTimeout(() => {
@@ -113,16 +140,37 @@ export default function Auth({ mode = 'login' }) {
     }
 
     if (role === 'hospital') {
-      if (!name || !phone || !email || !address || !lat || !lon) {
+      if (
+        !name ||
+        !phone ||
+        !email ||
+        !address ||
+        !hospitalLicenseNumber ||
+        !hospitalEmergencyContactPhone ||
+        !hospitalType ||
+        !lat ||
+        !lon
+      ) {
         setError('Please fill in all hospital fields.');
         return;
       }
+
       setLoading(true);
       setError(null);
       setSuccess(null);
 
       try {
-        const data = await registerHospital({ name, phone, email, address, lon, lat });
+        const data = await registerHospital({
+          name,
+          phone,
+          email,
+          address,
+          license_number: hospitalLicenseNumber,
+          emergency_contact_phone: hospitalEmergencyContactPhone,
+          hospital_type: hospitalType,
+          lon,
+          lat,
+        });
         setSuccess(data.message || 'Hospital registered successfully! Please wait for Admin approval.');
         setTimeout(() => {
           navigate('/login', { replace: true });
@@ -135,9 +183,20 @@ export default function Auth({ mode = 'login' }) {
       return;
     }
 
-    // Default Donor Registration
-    if (!name || !email || !password || !phone || !lat || !lon) {
-      setError('Please fill in all donor fields, including location.');
+    if (
+      !name ||
+      !email ||
+      !password ||
+      !phone ||
+      !dateOfBirth ||
+      !bloodGroup ||
+      !address ||
+      !emergencyContactName ||
+      !emergencyContactPhone ||
+      !lat ||
+      !lon
+    ) {
+      setError('Please fill in all donor registration fields.');
       return;
     }
 
@@ -146,7 +205,19 @@ export default function Auth({ mode = 'login' }) {
     setSuccess(null);
 
     try {
-      const data = await register({ full_name: name, email, password, phone, lon, lat });
+      const data = await register({
+        full_name: name,
+        email,
+        password,
+        phone,
+        lon,
+        lat,
+        date_of_birth: dateOfBirth,
+        blood_group: bloodGroup,
+        address,
+        emergency_contact_name: emergencyContactName,
+        emergency_contact_phone: emergencyContactPhone,
+      });
       setSuccess(data.message || 'Registration successful! Check your email for the OTP.');
       setTimeout(() => {
         navigate('/verify-otp', { replace: true });
@@ -181,12 +252,82 @@ export default function Auth({ mode = 'login' }) {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (role !== 'donor') {
+      setError('Password reset is currently available only for donor and admin accounts.');
+      return;
+    }
+
+    if (!email) {
+      setError('Please enter your email address.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const data = await forgotPassword(email);
+      setSuccess(data.message || 'If the account exists, a password reset link has been sent.');
+    } catch (err) {
+      setError(err.message || 'Password reset request failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!resetToken) {
+      setError('Reset token is missing. Please use the password reset link from your email.');
+      return;
+    }
+
+    if (!password || !confirmPassword) {
+      setError('Please enter and confirm your new password.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const data = await resetPassword({
+        token: resetToken,
+        new_password: password,
+      });
+      setSuccess(data.message || 'Password updated successfully.');
+      setTimeout(() => {
+        navigate('/login', { replace: true });
+      }, 1500);
+    } catch (err) {
+      setError(err.message || 'Password reset failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (mode === 'login') handleLogin();
     else if (mode === 'register') handleRegister();
     else if (mode === 'otp') handleVerifyOtp();
+    else if (mode === 'forgot-password') handleForgotPassword();
+    else if (mode === 'reset-password') handlePasswordReset();
   };
+
+  const showAccountType = mode === 'login' || mode === 'register' || mode === 'forgot-password';
+  const showEmailField =
+    mode === 'login' ||
+    mode === 'otp' ||
+    mode === 'forgot-password' ||
+    (mode === 'register' && (role === 'donor' || role === 'hospital' || role === 'bloodbank'));
 
   return (
     <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-4">
@@ -204,11 +345,15 @@ export default function Auth({ mode = 'login' }) {
             {mode === 'login' && 'Welcome back'}
             {mode === 'register' && 'Create your account'}
             {mode === 'otp' && 'Verify your identity'}
+            {mode === 'forgot-password' && 'Reset your password'}
+            {mode === 'reset-password' && 'Choose a new password'}
           </h2>
           <p className="text-sm text-on-surface-variant mt-1">
             {mode === 'login' && 'Sign in to access your dashboard'}
             {mode === 'register' && 'Join our network to save lives'}
             {mode === 'otp' && 'Enter the 6-digit code sent to your email'}
+            {mode === 'forgot-password' && 'Enter your donor or admin email to receive a reset link'}
+            {mode === 'reset-password' && 'Set a new password for your donor or admin account'}
           </p>
         </div>
 
@@ -225,15 +370,14 @@ export default function Auth({ mode = 'login' }) {
         )}
 
         <form className="space-y-4" onSubmit={handleSubmit}>
-
-          {(mode === 'login' || mode === 'register') && (
-            <Select 
+          {showAccountType && (
+            <Select
               label="Account Type"
               options={roleOptions}
               value={role}
               onChange={(e) => {
                 setRole(e.target.value);
-                setError(null); // Clear errors on role switch
+                setError(null);
               }}
             />
           )}
@@ -241,23 +385,57 @@ export default function Auth({ mode = 'login' }) {
           {mode === 'register' && (
             <>
               {role === 'donor' && (
-                <Input
-                  label="Full Name"
-                  placeholder="John Doe"
-                  icon={<User size={18} />}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
+                <>
+                  <Input
+                    label="Full Name"
+                    placeholder="John Doe"
+                    icon={<User size={18} />}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                  <Select
+                    label="Blood Group"
+                    options={donorBloodGroupOptions}
+                    value={bloodGroup}
+                    onChange={(e) => setBloodGroup(e.target.value)}
+                  />
+                  <Input
+                    label="Date of Birth"
+                    type="date"
+                    value={dateOfBirth}
+                    onChange={(e) => setDateOfBirth(e.target.value)}
+                  />
+                </>
               )}
+
               {(role === 'hospital' || role === 'bloodbank') && (
                 <Input
-                  label={role === 'hospital' ? "Hospital Name" : "Blood Bank Name"}
-                  placeholder={role === 'hospital' ? "City General Hospital" : "LifeFlow Blood Bank"}
+                  label={role === 'hospital' ? 'Hospital Name' : 'Blood Bank Name'}
+                  placeholder={role === 'hospital' ? 'City General Hospital' : 'LifeFlow Blood Bank'}
                   icon={<User size={18} />}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
               )}
+
+              {role === 'hospital' && (
+                <>
+                  <Input
+                    label="License Number"
+                    placeholder="HSP-2026-001"
+                    icon={<KeyRound size={18} />}
+                    value={hospitalLicenseNumber}
+                    onChange={(e) => setHospitalLicenseNumber(e.target.value)}
+                  />
+                  <Select
+                    label="Hospital Type"
+                    options={hospitalTypeOptions}
+                    value={hospitalType}
+                    onChange={(e) => setHospitalType(e.target.value)}
+                  />
+                </>
+              )}
+
               {role === 'bloodbank' && (
                 <>
                   <Input
@@ -276,6 +454,7 @@ export default function Auth({ mode = 'login' }) {
                   />
                 </>
               )}
+
               {(role === 'donor' || role === 'hospital' || role === 'bloodbank') && (
                 <Input
                   label="Contact Phone"
@@ -286,17 +465,48 @@ export default function Auth({ mode = 'login' }) {
                   onChange={(e) => setPhone(e.target.value)}
                 />
               )}
-              {(role === 'hospital' || role === 'bloodbank') && (
+
+              {(role === 'donor' || role === 'hospital' || role === 'bloodbank') && (
+                <Input
+                  label="Full Address"
+                  placeholder="123 Care Street, Medical District"
+                  icon={<MapPin size={18} />}
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                />
+              )}
+
+              {role === 'donor' && (
                 <>
                   <Input
-                    label="Full Address"
-                    placeholder="123 Care Street, Medical District"
-                    icon={<MapPin size={18} />}
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
+                    label="Emergency Contact Name"
+                    placeholder="Jane Doe"
+                    icon={<User size={18} />}
+                    value={emergencyContactName}
+                    onChange={(e) => setEmergencyContactName(e.target.value)}
+                  />
+                  <Input
+                    label="Emergency Contact Phone"
+                    type="tel"
+                    placeholder="9876543211"
+                    icon={<Phone size={18} />}
+                    value={emergencyContactPhone}
+                    onChange={(e) => setEmergencyContactPhone(e.target.value)}
                   />
                 </>
               )}
+
+              {role === 'hospital' && (
+                <Input
+                  label="Emergency Contact Phone"
+                  type="tel"
+                  placeholder="9876543211"
+                  icon={<Phone size={18} />}
+                  value={hospitalEmergencyContactPhone}
+                  onChange={(e) => setHospitalEmergencyContactPhone(e.target.value)}
+                />
+              )}
+
               {(role === 'donor' || role === 'hospital' || role === 'bloodbank') && (
                 <div className="space-y-3">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
@@ -323,8 +533,7 @@ export default function Auth({ mode = 'login' }) {
             </>
           )}
 
-          {/* Email applies to Login (all roles), Register (donor, hospital, and blood bank), and OTP */}
-          {((mode === 'login') || (mode === 'register' && (role === 'donor' || role === 'hospital' || role === 'bloodbank')) || mode === 'otp') && (
+          {showEmailField && (
             <Input
               label="Email Address"
               type="email"
@@ -335,11 +544,11 @@ export default function Auth({ mode = 'login' }) {
             />
           )}
 
-          {mode === 'login' && (
+          {(mode === 'login' || mode === 'reset-password') && (
             <Input
-              label="Password"
+              label={mode === 'login' ? 'Password' : 'New Password'}
               type="password"
-              placeholder="••••••••"
+              placeholder="********"
               icon={<Lock size={18} />}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -350,10 +559,21 @@ export default function Auth({ mode = 'login' }) {
             <Input
               label="Create Password"
               type="password"
-              placeholder="••••••••"
+              placeholder="********"
               icon={<Lock size={18} />}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+            />
+          )}
+
+          {mode === 'reset-password' && (
+            <Input
+              label="Confirm New Password"
+              type="password"
+              placeholder="********"
+              icon={<Lock size={18} />}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
             />
           )}
 
@@ -369,9 +589,23 @@ export default function Auth({ mode = 'login' }) {
             />
           )}
 
+          {mode === 'forgot-password' && role !== 'donor' && (
+            <p className="text-xs font-medium text-on-surface-variant">
+              Password reset is currently available only for donor and admin accounts.
+            </p>
+          )}
+
           {mode === 'login' && (
             <div className="flex justify-end">
-              <a href="#" className="text-xs font-bold text-primary hover:underline">Forgot Password?</a>
+              {role === 'donor' ? (
+                <Link to="/forgot-password" className="text-xs font-bold text-primary hover:underline">
+                  Forgot Password?
+                </Link>
+              ) : (
+                <span className="text-xs font-medium text-on-surface-variant">
+                  Password reset is available for donor/admin accounts.
+                </span>
+              )}
             </div>
           )}
 
@@ -381,6 +615,8 @@ export default function Auth({ mode = 'login' }) {
                 {mode === 'login' && 'Sign In'}
                 {mode === 'register' && 'Register'}
                 {mode === 'otp' && 'Verify Code'}
+                {mode === 'forgot-password' && 'Send Reset Link'}
+                {mode === 'reset-password' && 'Update Password'}
               </>
             )}
           </Button>
@@ -388,7 +624,7 @@ export default function Auth({ mode = 'login' }) {
 
         <div className="text-center text-sm font-medium text-slate-500 pt-2 pb-1">
           {mode === 'login' && (
-            <p>Don't have an account? <Link to="/register" className="text-primary hover:underline font-bold">Sign up</Link></p>
+            <p>Don&apos;t have an account? <Link to="/register" className="text-primary hover:underline font-bold">Sign up</Link></p>
           )}
           {mode === 'register' && (
             <p>Already have an account? <Link to="/login" className="text-primary hover:underline font-bold">Sign in</Link></p>
@@ -396,6 +632,15 @@ export default function Auth({ mode = 'login' }) {
           {mode === 'otp' && (
             <p>Already verified? <Link to="/login" className="text-primary hover:underline font-bold">Sign in</Link></p>
           )}
+          {mode === 'forgot-password' && (
+            <p>Remembered it? <Link to="/login" className="text-primary hover:underline font-bold">Sign in</Link></p>
+          )}
+          {mode === 'reset-password' && (
+            <p>Back to login? <Link to="/login" className="text-primary hover:underline font-bold">Sign in</Link></p>
+          )}
+          <p className="mt-3">
+            Organising a blood drive? <Link to="/organize-camp" className="text-primary hover:underline font-bold">Submit a camp proposal</Link>
+          </p>
         </div>
       </Card>
     </div>

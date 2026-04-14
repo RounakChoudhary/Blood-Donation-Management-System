@@ -33,6 +33,16 @@ function toPositiveInteger(value, fallback) {
   return parsed;
 }
 
+function getNextExpansionRadius(currentRadiusMeters) {
+  const currentRadius = toPositiveInteger(currentRadiusMeters, 0);
+  for (const radius of RADIUS_STEP_METERS) {
+    if (radius > currentRadius) {
+      return radius;
+    }
+  }
+  return null;
+}
+
 function buildEmptyResponseSummary() {
   return {
     total_count: 0,
