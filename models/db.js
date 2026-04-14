@@ -2,7 +2,20 @@ const { Pool } = require("pg");
 
 require("dotenv").config();
 
-const rawDatabaseUrl = String(process.env.DATABASE_URL || "").trim();
+function sanitizeDatabaseUrl(value) {
+  let sanitized = String(value || "").trim();
+
+  if (
+    (sanitized.startsWith('"') && sanitized.endsWith('"')) ||
+    (sanitized.startsWith("'") && sanitized.endsWith("'"))
+  ) {
+    sanitized = sanitized.slice(1, -1).trim();
+  }
+
+  return sanitized.replace(/[\r\n]+/g, "");
+}
+
+const rawDatabaseUrl = sanitizeDatabaseUrl(process.env.DATABASE_URL);
 
 if (!rawDatabaseUrl) {
   throw new Error("DATABASE_URL is not set");
@@ -13,7 +26,7 @@ let parsedDatabaseUrl;
 try {
   parsedDatabaseUrl = new URL(rawDatabaseUrl);
 } catch {
-  throw new Error("DATABASE_URL is invalid");
+  throw new Error("DATABASE_URL is invalid or incorrectly formatted");
 }
 
 if (!parsedDatabaseUrl.hostname) {
