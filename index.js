@@ -2,7 +2,7 @@ const express = require("express");
 require("dotenv").config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 require("./models/db");
 
@@ -15,34 +15,17 @@ app.use(requestLogger);
 
 // Local-dev friendly CORS support.
 // Explicit origins can be configured via ALLOWED_ORIGINS (comma-separated).
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ||
-  "http://localhost:5173,http://127.0.0.1:5173")
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+const cors = require("cors");
 
-function isAllowedLocalDevOrigin(origin) {
-  if (!origin || typeof origin !== "string") return false;
-  return /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d+)?$/i.test(origin);
-}
-
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-
-  if (origin && (ALLOWED_ORIGINS.includes(origin) || isAllowedLocalDevOrigin(origin))) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Vary", "Origin");
-  }
-
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,PUT,DELETE,OPTIONS");
-
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
-
-  return next();
-});
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://blood-donation-management-system-sage.vercel.app"
+    ],
+    credentials: true,
+  })
+);
 
 const authRoutes = require("./routes/auth.routes");
 const userRoutes = require("./routes/user.routes");
