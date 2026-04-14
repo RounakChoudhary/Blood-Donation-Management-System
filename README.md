@@ -389,10 +389,14 @@ npm install
 
 # Configure environment variables
 # Create .env manually and set:
-# DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
+# DATABASE_URL
+# PORT
 # JWT_SECRET
 # SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
+# FRONTEND_URL
 # APP_BASE_URL
+# ENABLE_BACKGROUND_JOBS
+# VITE_API_BASE_URL (frontend)
 # RESPONSE_TOKEN_SECRET (recommended)
 # OTP_TTL_MINUTES (optional)
 

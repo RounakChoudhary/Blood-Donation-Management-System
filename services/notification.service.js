@@ -11,6 +11,14 @@ const { sendEmergencyEmail, sendRegularBloodRequestEmail } = require("./email.se
 
 const RETRY_DELAYS_MS = [5000, 25000, 125000];
 
+function getAppBaseUrl() {
+  const appBaseUrl = String(process.env.APP_BASE_URL || "").trim().replace(/\/$/, "");
+  if (!appBaseUrl) {
+    throw new Error("APP_BASE_URL is not set");
+  }
+  return appBaseUrl;
+}
+
 function toKm(distanceMeters) {
   return (Number(distanceMeters || 0) / 1000).toFixed(1);
 }
@@ -36,9 +44,10 @@ async function buildResponseLinks(match) {
   });
 
   const token = encodeURIComponent(tokenResult.rawToken);
+  const appBaseUrl = getAppBaseUrl();
   return {
-    acceptLink: `${process.env.APP_BASE_URL || "http://localhost:3000"}/donor-requests/respond/accept?token=${token}`,
-    declineLink: `${process.env.APP_BASE_URL || "http://localhost:3000"}/donor-requests/respond/decline?token=${token}`,
+    acceptLink: `${appBaseUrl}/donor-requests/respond/accept?token=${token}`,
+    declineLink: `${appBaseUrl}/donor-requests/respond/decline?token=${token}`,
   };
 }
 

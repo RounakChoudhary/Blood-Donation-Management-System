@@ -30,7 +30,7 @@ function buildRunner(name, task) {
 }
 
 function startBackgroundJobs() {
-  const schedulerEnabled = String(process.env.ENABLE_BACKGROUND_JOBS || "true").toLowerCase() !== "false";
+  const schedulerEnabled = String(process.env.ENABLE_BACKGROUND_JOBS || "false").toLowerCase() === "true";
   if (!schedulerEnabled) {
     console.log("[scheduler] background jobs disabled");
     return { stop: () => {} };

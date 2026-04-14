@@ -1,6 +1,16 @@
 const nodemailer = require("nodemailer");
 
-const APP_BASE_URL = process.env.APP_BASE_URL || "http://localhost:3000";
+function normalizeBaseUrl(value) {
+  return String(value || "").trim().replace(/\/$/, "");
+}
+
+function getAppBaseUrl() {
+  const appBaseUrl = normalizeBaseUrl(process.env.APP_BASE_URL);
+  if (!appBaseUrl) {
+    throw new Error("APP_BASE_URL is not set");
+  }
+  return appBaseUrl;
+}
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -106,7 +116,7 @@ If you did not request this registration, ignore this email.
 }
 
 async function sendPasswordResetEmail({ to, token, expiresInMinutes }) {
-  const resetBaseUrl = process.env.PASSWORD_RESET_BASE_URL || APP_BASE_URL;
+  const resetBaseUrl = normalizeBaseUrl(process.env.PASSWORD_RESET_BASE_URL) || getAppBaseUrl();
   const resetLink = `${resetBaseUrl}/reset-password?token=${encodeURIComponent(token)}`;
   const subject = "Reset your BDMS password";
 
@@ -196,7 +206,7 @@ async function sendHospitalVerificationEmail({
   tempPassword = null,
 }) {
   const subject = "Hospital verification successful - BDMS access details";
-  const loginUrl = `${APP_BASE_URL.replace(/\/$/, "")}/login`;
+  const loginUrl = `${getAppBaseUrl()}/login`;
 
   const text = `Hello ${hospitalName || "Hospital Team"},
 
@@ -233,7 +243,7 @@ async function sendBloodBankVerificationEmail({
   tempPassword = null,
 }) {
   const subject = "Blood bank verification successful - BDMS access details";
-  const loginUrl = `${APP_BASE_URL.replace(/\/$/, "")}/login`;
+  const loginUrl = `${getAppBaseUrl()}/login`;
 
   const text = `Hello ${bloodBankName || "Blood Bank Team"},
 

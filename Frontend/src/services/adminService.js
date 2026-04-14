@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+import { API_BASE_URL } from "./apiBaseUrl";
 
 function getStoredToken() {
   const tokenKeys = ["token", "authToken", "accessToken", "jwt", "adminToken"];

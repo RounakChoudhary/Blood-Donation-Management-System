@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+import { API_BASE_URL } from "./apiBaseUrl";
 const ACTIVE_REQUEST_STATUSES = new Set(["pending", "matching", "active", "open", "matched"]);
 
 function getStoredToken() {

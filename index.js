@@ -1,28 +1,47 @@
 const express = require("express");
+const cors = require("cors");
 require("dotenv").config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
 require("./models/db");
 
 const requestContext = require("./middleware/requestContext.middleware");
 const requestLogger = require("./middleware/requestLogger.middleware");
+const { startBackgroundJobs } = require("./services/scheduler.service");
+
+function normalizeOrigin(origin) {
+  return String(origin || "").trim().replace(/\/$/, "");
+}
+
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  "http://localhost:5173",
+].map(normalizeOrigin).filter(Boolean);
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (allowedOrigins.includes(normalizedOrigin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS origin not allowed: ${origin}`));
+  },
+  credentials: true,
+  optionsSuccessStatus: 204,
+};
 
 app.use(express.json());
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 app.use(requestContext);
 app.use(requestLogger);
-
-// Local-dev friendly CORS support.
-// Explicit origins can be configured via ALLOWED_ORIGINS (comma-separated).
-const cors = require("cors");
-
-app.use(
-  cors({
-    origin: true,
-    credentials: true,
-  })
-);
 
 const authRoutes = require("./routes/auth.routes");
 const userRoutes = require("./routes/user.routes");
@@ -36,7 +55,6 @@ const bloodCampRoutes = require("./routes/bloodCamp.routes");
 const adminRoutes = require("./routes/admin.routes");
 const apiRoutes = require("./routes/api.routes");
 const systemRoutes = require("./routes/system.routes");
-const { startBackgroundJobs } = require("./services/scheduler.service");
 
 app.use("/", systemRoutes);
 app.use("/auth", authRoutes);
