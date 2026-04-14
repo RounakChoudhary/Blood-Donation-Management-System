@@ -17,13 +17,11 @@ app.use(requestLogger);
 // Explicit origins can be configured via ALLOWED_ORIGINS (comma-separated).
 const cors = require("cors");
 
+const cors = require("cors");
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "https://blood-donation-management-system.vercel.app",
-      /\.vercel\.app$/ // allow ALL preview deployments
-    ],
+    origin: true,
     credentials: true,
   })
 );
