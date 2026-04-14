@@ -20,6 +20,22 @@ const allowedOrigins = [
   "http://localhost:5173",
 ].map(normalizeOrigin).filter(Boolean);
 
+function isAllowedVercelPreviewOrigin(origin) {
+  const vercelProject = String(process.env.VERCEL_PROJECT_NAME || "").trim();
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  if (!vercelProject) {
+    return false;
+  }
+
+  try {
+    const { hostname } = new URL(normalizedOrigin);
+    return hostname === `${vercelProject}.vercel.app` || hostname.startsWith(`${vercelProject}-`);
+  } catch {
+    return false;
+  }
+}
+
 const corsOptions = {
   origin(origin, callback) {
     if (!origin) {
@@ -27,7 +43,10 @@ const corsOptions = {
     }
 
     const normalizedOrigin = normalizeOrigin(origin);
-    if (allowedOrigins.includes(normalizedOrigin)) {
+    if (
+      allowedOrigins.includes(normalizedOrigin) ||
+      isAllowedVercelPreviewOrigin(normalizedOrigin)
+    ) {
       return callback(null, true);
     }
 
