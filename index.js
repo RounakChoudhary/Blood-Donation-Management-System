@@ -21,7 +21,8 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://blood-donation-management-system-sage.vercel.app"
+      "https://blood-donation-management-system.vercel.app",
+      /\.vercel\.app$/ // allow ALL preview deployments
     ],
     credentials: true,
   })
