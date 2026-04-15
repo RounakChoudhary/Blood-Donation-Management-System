@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const PasswordResetToken = require("../models/passwordResetToken.model");
 const User = require("../models/user.model");
 const { sendPasswordResetEmail } = require("./email.service");
+const { validatePassword } = require("../utils/validation");
 
 const RESET_TOKEN_TTL_MINUTES = Number(process.env.PASSWORD_RESET_TTL_MINUTES || 30);
 const BCRYPT_ROUNDS = Number(process.env.BCRYPT_ROUNDS || 12);
@@ -70,6 +71,11 @@ async function resetPassword({ token, new_password }) {
     return { ok: false, status: 400, error: "token and new_password are required" };
   }
 
+  const passwordValidation = validatePassword(new_password);
+  if (!passwordValidation.isValid) {
+    return { ok: false, status: 400, error: passwordValidation.error };
+  }
+
   const token_hash = hashToken(token);
   const resetToken = await PasswordResetToken.getActiveTokenByHash(token_hash);
   if (!resetToken) {
@@ -80,7 +86,7 @@ async function resetPassword({ token, new_password }) {
     return { ok: false, status: 400, error: "Unsupported reset token type" };
   }
 
-  const password_hash = await bcrypt.hash(new_password, BCRYPT_ROUNDS);
+  const password_hash = await bcrypt.hash(passwordValidation.value, BCRYPT_ROUNDS);
   const updatedUser = await User.updatePasswordById({
     userId: resetToken.user_or_hospital_id,
     password_hash,

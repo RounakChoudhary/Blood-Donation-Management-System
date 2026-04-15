@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { Menu, Bell, LogOut } from 'lucide-react';
+import { Menu, LogOut } from 'lucide-react';
 import { logout } from '../services/authService';
 
 export default function Topbar({
@@ -69,11 +69,6 @@ export default function Topbar({
               <span className="hidden sm:inline">Logout</span>
             </button>
           )}
-          <div className="relative p-2 rounded-full cursor-pointer hover:bg-slate-100 hover:scale-105 transition-all duration-200 text-slate-500 hover:text-primary">
-            <Bell size={20} />
-            <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-primary rounded-full border-2 border-white"></div>
-          </div>
-          
           <Link to="/profile" className="w-[38px] h-[38px] rounded-full bg-slate-100 overflow-hidden ring-2 ring-transparent hover:ring-primary/30 hover:scale-105 transition-all duration-200 cursor-pointer shadow-sm">
             <img alt="User profile" src="https://ui-avatars.com/api/?name=Admin+User&background=ffdad6&color=b7131a&bold=true" className="w-full h-full object-cover" />
           </Link>
