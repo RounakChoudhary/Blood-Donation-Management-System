@@ -10,9 +10,8 @@ Digitizes emergency blood request handling, geospatial donor matching, donation 
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL_16-PostGIS_3-blue?logo=postgresql)](https://www.postgresql.org/)
 [![Frontend](https://img.shields.io/badge/Frontend-HTML_CSS_JS-yellow?logo=html5)](https://developer.mozilla.org/en-US/docs/Web/HTML)
 [![Auth](https://img.shields.io/badge/Auth-JWT_HS256-orange)](https://jwt.io/)
-[![Notifications](https://img.shields.io/badge/Notifications-Nodemailer_SMTP-red?logo=gmail)](https://nodemailer.com/)
-[![Sprint](https://img.shields.io/badge/Sprint_4-In_Progress-yellow)]()
-[![Status](https://img.shields.io/badge/Backend-Core_Operational-success)]()
+[![Notifications](https://img.shields.io/badge/Notifications-Resend_API-red)](https://resend.com/)
+[![Deployment](https://img.shields.io/badge/Deployment-Vercel%20%2B%20Railway-success)]()
 
 </div>
 
@@ -20,11 +19,11 @@ Digitizes emergency blood request handling, geospatial donor matching, donation 
 
 ## 🔍 Overview
 
-Manual blood donation coordination between donors, hospitals, and blood banks causes critical delays during emergencies — no unified system, no automated donor matching, no real-time notification, no donation history tracking.
+Blood donation coordination is often slowed down by fragmented hospital records, manual calling chains, informal messaging groups, and the lack of a location-aware system for finding compatible donors quickly. In emergency situations, that discovery delay directly affects whether blood can be arranged within the critical treatment window.
 
-**BDMS** replaces this fragmented process with a centralised platform. A hospital raises an emergency request; the system instantly runs a geospatial ABO/Rh-compatible donor search, dispatches tokenised email alerts, records donor responses, and tracks the full request lifecycle — all automatically.
+**BDMS** is designed as a centralized blood donation management platform that helps hospitals, donors, blood banks, and administrators work through one system. It combines geospatial donor matching, ABO/Rh compatibility checks, donation cooldown enforcement, OTP-based account activation, emergency request workflows, and email-driven response links so that urgent requests can move from creation to donor outreach in seconds instead of hours.
 
-> See the [Testing Report](https://drive.google.com/file/d/1ykCAF0_ZO68oGofBqHzWPx9dXE8o62l3/view?usp=drive_link) for API validation results.
+Beyond emergency matching, the platform also supports donor profile management, blood camp discovery, hospital and blood bank onboarding, administrative review flows, and deployment on a modern cloud stack using Vercel, Railway, and Neon PostgreSQL with PostGIS.
 
 ---
 
@@ -37,7 +36,7 @@ Manual blood donation coordination between donors, hospitals, and blood banks ca
 | **Frontend** | HTML / CSS / JavaScript (React dashboards — in progress) |
 | **Authentication** | JWT HS256 (24-hour expiry) + bcrypt password hashing |
 | **Authorization** | `middleware/requireRole.js` — RBAC enforced on all endpoints |
-| **Email / OTP** | Nodemailer via Gmail App Password / SendGrid SMTP |
+| **Email / OTP** | Resend Email API |
 | **Geospatial** | PostGIS `ST_DWithin` + `ST_Distance` for proximity matching |
 | **Schema Management** | Incremental SQL migration files under `database/` (immutable once committed) |
 | **Task Tracking** | ClickUp |
@@ -54,7 +53,7 @@ Manual blood donation coordination between donors, hospitals, and blood banks ca
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Web Frontend (Browser)                      │
 │   Donor Dashboard │ Hospital Dashboard │ Blood Bank │ Admin      │
-│          (HTML/CSS/JS — React dashboards in Sprint 4)            │
+│             (React frontend for donor, hospital, admin)           │
 └──────────────────────────────┬──────────────────────────────────┘
                                │ HTTPS / JSON
 ┌──────────────────────────────▼──────────────────────────────────┐
@@ -78,8 +77,7 @@ Manual blood donation coordination between donors, hospitals, and blood banks ca
 └──────────────────────────────┬──────────────────────────────────┘
                                │
           ┌────────────────────┴────────────────────┐
-          │        Nodemailer / SMTP Gateway          │
-          │  (Gmail App Password / SendGrid)          │
+          │            Resend Email API                │
           │  OTPs · Emergency alerts · Deep-links     │
           └─────────────────────────────────────────┘
 ```
@@ -102,7 +100,7 @@ RBAC is enforced at the middleware layer via `requireRole.js` for user/admin rou
 ## ✨ Features by Module
 
 ### 🔐 Auth & User Management
-- **Donor registration** with OTP-based email verification (6-digit code, 10-minute TTL via Nodemailer)
+- **Donor registration** with OTP-based email verification (6-digit code, 10-minute TTL via Resend)
 - Donor accounts remain inactive until OTP verification succeeds
 - **Hospital registration** with admin verification and separate hospital auth setup/login
 - **Blood bank registration** with pending onboarding status
@@ -119,7 +117,7 @@ RBAC is enforced at the middleware layer via `requireRole.js` for user/admin rou
 - Blood bank emergency notification flow is still pending
 
 ### 📧 Email Notification Service
-- Nodemailer/SMTP email delivery for OTPs, emergency donor alerts, camp status emails, and hospital acceptance notifications
+- Resend-powered email delivery for OTPs, emergency donor alerts, camp status emails, and hospital acceptance notifications
 - Emergency donor alert emails include **single-use signed deep-links** for accept/decline
 - Deep-link tokens are stored as **hashes only** and expire after **2 hours**
 - Retry logic is implemented with exponential backoff: **5s -> 25s -> 125s**
@@ -150,10 +148,10 @@ RBAC is enforced at the middleware layer via `requireRole.js` for user/admin rou
 - GIST spatial indexes are used on user, hospital, blood bank, request, and camp locations
 - Dedicated nearby blood bank API is not implemented yet
 
-### 📊 Report Generation *(Sprint 6)*
+### 📊 Report Generation
 - Reporting modules are pending implementation
 
-### 🛡 Admin Console *(Sprint 5)*
+### 🛡 Admin Console
 - Admin routes exist for users, hospitals, blood banks, and blood requests
 - Hospital verification and blood bank verification endpoints exist
 - Broader system configuration and reporting screens are still pending
@@ -264,118 +262,38 @@ Routes are mounted directly from `index.js`. Protected routes require `Authoriza
 
 ---
 
-## Sprint Progress
+## 🚀 Deployment
 
-> **Plan Period:** February 5, 2026 - April 14, 2026  
-> **Plan Source:** `Sprint_Plan_V3_Updated.pdf`  
-> **Progress Snapshot Updated:** April 3, 2026
->
-> Checklist legend: `[x]` implemented in this repository, `[ ]` not fully implemented yet.
-> Demo note: Sprint 5 is compressed to align with the project demonstration on April 14, 2026.
+The project is structured for a split deployment:
 
-### Sprint 1 - Project Setup, Registration Modules and Authentication
-*February 5, 2026 - February 16, 2026*
+- **Frontend:** Vercel
+- **Backend:** Railway
+- **Database:** Neon PostgreSQL with PostGIS
+- **Email:** Resend Email API
 
-- [x] Project setup and database design
-- [x] User authentication system (FR 4.1.4)
-- [x] Donor registration module (FR 4.1.1)
-- [x] Hospital registration module (FR 4.1.3)
-- [x] Blood bank registration module (FR 4.1.2) - backend registration is implemented; verification UI is still partial
-- [x] Password reset functionality (FR 4.1.5)
+### Railway environment variables
 
-### Sprint 2 - Emergency Request Workflow, Matching Engine and Notifications
-*February 23, 2026 - March 9, 2026*
+- `DATABASE_URL`
+- `PORT`
+- `JWT_SECRET`
+- `FRONTEND_URL`
+- `APP_BASE_URL`
+- `ENABLE_BACKGROUND_JOBS`
+- `ALLOW_VERCEL_PREVIEW_ORIGINS`
+- `RESEND_API_KEY`
+- `EMAIL_FROM`
+- `RESPONSE_TOKEN_SECRET` (recommended)
 
-- [x] Role-based auth hardening (FR 4.1.4 RBAC)
-- [x] Donor eligibility and profile APIs (FR 4.4.1, FR 4.4.2)
-- [x] Emergency request creation and hospital workflow (FR 4.2.1)
-- [x] Donor request response workflow (FR 4.2.4)
-- [x] Notification system via SMTP email (FR 4.2.3, FR 4.7.1)
-- [ ] Dynamic radius expansion (FR 4.2.5) - expansion batch logic exists, scheduler/job wiring pending
-- [x] Blood bank emergency notification (FR 4.2.6)
+### Vercel environment variables
 
-### Sprint 3 - Blood Donation Camp, Location Services and Hospital Onboarding
-*March 9, 2026 - March 22, 2026*
+- `VITE_API_BASE_URL`
 
-- [x] Hospital onboarding routes and controllers (FR 4.1.3)
-- [x] Blood bank service and authorization backend (FR 4.1.2 backend)
-- [x] Camp proposal submission (FR 4.3.1)
-- [x] Camp approval workflow (FR 4.3.2)
-- [x] Camp discovery by donors (FR 4.3.3)
-- [x] Location services integration (FR 4.6.1, FR 4.6.2) - nearby donor and nearby blood bank APIs are implemented
-- [ ] Dynamic radius expansion carry-over (FR 4.2.5)
-- [x] Blood bank emergency notification carry-over (FR 4.2.6)
-- [x] Password reset carry-over (FR 4.1.5)
+### Deployment notes
 
-### Sprint 4 - Frontend Dashboards, Admin Panel and Blood Request Processing
-*March 23, 2026 - April 6, 2026*
-
-- [ ] Donor and hospital dashboards (FR 3.1, FR 4.4.2) - UI exists, but donor dashboard and parts of hospital flow still mocked
-- [ ] Request status view (FR 4.5.1, FR 4.5.2) - emergency status APIs exist; full regular-request status flow and frontend coverage are still partial
-- [x] Donation history and profile management (FR 4.4.2, FR 4.4.3) - backend endpoints are implemented
-- [ ] Admin dashboard (FR 4.9.1-4.9.4) - backend admin APIs exist; frontend integration is partial
-- [x] Hospital and blood bank verification backend (FR 4.9.1, FR 4.9.2)
-- [x] User management backend (FR 4.9.3)
-- [x] System configuration backend (FR 4.9.4)
-
-### Sprint 5 - Reports, Polish, Testing and Security Compliance
-*April 7, 2026 - April 14, 2026*
-
-- [ ] Report generation module (FR 4.8.1, FR 4.8.2)
-- [x] Password reset (FR 4.1.5)
-- [ ] Mark notification as read (FR 4.7.2)
-- [x] Audit logging (NFR 5.3)
-- [ ] System-wide testing and bug fixing (NFR 5.1)
-- [ ] Security and compliance review (NFR 5.3)
-
-## Backend Alignment Status (SRS v2.2)
-
-1. Fully completed backend FRs
-
-- FR 4.1.1 Donor Registration
-- FR 4.1.2 Blood Bank Registration
-- FR 4.1.3 Hospital Registration
-- FR 4.1.4 User Login
-- FR 4.1.5 Password Reset
-- FR 4.2.1 Create Emergency Blood Request
-- FR 4.2.2 Location-Based Donor Matching
-- FR 4.2.3 Send Emergency Notifications
-- FR 4.2.4 Donor Response Handling
-- FR 4.2.6 Notify Nearby Blood Banks
-- FR 4.3.1 Submit Blood Camp Proposal
-- FR 4.3.2 Approve or Reject Camp Proposal
-- FR 4.3.3 Camp Discovery by Donors
-- FR 4.4.1 Check Donation Eligibility
-- FR 4.4.2 Update Donor Profile
-- FR 4.4.3 View Donation History
-- FR 4.6.1 Find Nearby Blood Banks
-- FR 4.6.2 Find Nearby Donors
-- FR 4.7.1 Send Notification
-- FR 4.9.1 Verify Blood Bank
-- FR 4.9.2 Verify Hospital
-- FR 4.9.3 Manage Users
-- FR 4.9.4 System Configuration
-
-2. Partially implemented backend FRs
-
-- FR 4.2.5 Dynamic Radius Expansion
-- FR 4.5.1 Submit Regular Blood Request
-- FR 4.5.2 Track Request Status
-
-3. Backend FRs still pending
-
-- FR 4.7.2 Mark Notification as Read
-- FR 4.8.1 Generate Donation Report
-- FR 4.8.2 Generate Emergency Response Report
-
-4. Backend NFRs still pending
-
-- Automated performance validation against SRS response-time targets
-- Queue or worker-backed execution for retries and scheduled jobs
-- Scheduler wiring for dynamic radius expansion and periodic cleanup tasks
-- Broader backend test coverage and regression automation
-- HTTPS/TLS enforcement at deployment/runtime boundary
-- Structured monitoring, metrics, and alerting for background workflows
+- Set `FRONTEND_URL` to the primary Vercel production domain used by the app.
+- Set `APP_BASE_URL` to the frontend URL that should appear in password reset and email links.
+- Enable `ALLOW_VERCEL_PREVIEW_ORIGINS=true` on Railway if Vercel preview deployments should be able to call the backend.
+- Keep `ENABLE_BACKGROUND_JOBS=false` unless you explicitly want scheduled jobs running in that Railway service.
 
 ## ⚙️ Getting Started
 
@@ -392,10 +310,12 @@ npm install
 # DATABASE_URL
 # PORT
 # JWT_SECRET
-# SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
 # FRONTEND_URL
 # APP_BASE_URL
 # ENABLE_BACKGROUND_JOBS
+# ALLOW_VERCEL_PREVIEW_ORIGINS
+# RESEND_API_KEY
+# EMAIL_FROM
 # VITE_API_BASE_URL (frontend)
 # RESPONSE_TOKEN_SECRET (recommended)
 # OTP_TTL_MINUTES (optional)
@@ -417,7 +337,7 @@ node index.js
 ## 🧠 Design Decisions
 
 ### WhatsApp → Email (v2.2)
-WhatsApp integration via Twilio was originally planned but removed in SRS v2.2. Nodemailer/SMTP is the only runtime notification channel used by the backend. Because migrations are append-only, historical legacy migration files still document the removed WhatsApp design, but application code no longer uses it.
+WhatsApp integration via Twilio was originally planned but removed in SRS v2.2. Resend email delivery is the active runtime notification channel used by the backend. Because migrations are append-only, historical legacy migration files may still document older notification approaches, but application code no longer uses them.
 
 ### Passive Camp Discovery Model
 The system does not process on-site attendee registrations or record donations from camps. It acts purely as an information intermediary — publishing approved camp listings for donor discovery. This avoids out-of-scope complexity (on-site ops, physical donation recording) and keeps the system boundary clean.
@@ -441,11 +361,11 @@ Rather than requiring donors to log in to respond to emergency alerts, each emai
 | **Performance** | `ST_DWithin` geospatial query within **3 seconds** for up to 10,000 donors |
 | **Performance** | User authentication and dashboard load within **2 seconds** |
 | **Performance** | API 95th-percentile response under **300 ms** at 50 concurrent users |
-| **Performance** | Email SMTP handshake + queue within **2 seconds** |
+| **Performance** | Email API dispatch handshake within **2 seconds** |
 | **Security** | HTTPS (TLS 1.2 minimum) for all client-server communication |
 | **Security** | bcrypt password hashing with minimum cost factor 12 |
 | **Security** | JWT HS256 tokens stored in env variables; 24-hour expiry |
-| **Security** | SMTP credentials exclusively in `.env` — never in source code or logs |
+| **Security** | Email API credentials exclusively in `.env` — never in source code or logs |
 | **Security** | All database queries use parameterised statements — no SQL injection possible |
 | **Safety** | Emergency request creation restricted to verified hospitals only |
 | **Business Rule** | One open request per blood group per hospital at a time |
