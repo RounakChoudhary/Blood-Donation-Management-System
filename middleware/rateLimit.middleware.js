@@ -19,7 +19,7 @@ const otpLimiter = rateLimit({
 // Login rate limit: 10 requests per hour per IP
 const loginLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // 10 requests
+  max: 200, // 200 requests
   message: {
     error: "Too many login attempts. Please wait 1 hour before trying again.",
   },
