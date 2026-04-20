@@ -438,52 +438,6 @@ async function sendEmailForMatches(matches, request) {
   return results;
 }
 
-async function notifyBloodBanksForEmergencyRequest({ request, bloodBanks = [] }) {
-  if (!request || !Array.isArray(bloodBanks) || bloodBanks.length === 0) {
-    return [];
-  }
-
-  const hospital = await Hospital.getHospitalById(request.hospital_id);
-  const results = [];
-
-  for (const bank of bloodBanks) {
-    if (!bank.email) {
-      results.push({
-        blood_bank_id: bank.id,
-        ok: false,
-        reason: "Blood bank email missing",
-      });
-      continue;
-    }
-
-    try {
-      const sendResult = await sendRegularBloodRequestEmail({
-        to: bank.email,
-        hospitalName: hospital?.name || "A nearby hospital",
-        bloodGroup: request.blood_group,
-        unitsRequired: request.units_required,
-        requiredDate: new Date().toISOString().slice(0, 10),
-        notes: request.notes || request.patient_name || null,
-        subjectPrefix: "Emergency",
-      });
-
-      results.push({
-        blood_bank_id: bank.id,
-        ok: true,
-        provider_message_id: sendResult.messageId || null,
-      });
-    } catch (err) {
-      results.push({
-        blood_bank_id: bank.id,
-        ok: false,
-        reason: err.message,
-      });
-    }
-  }
-
-  return results;
-}
-
 async function notifyBloodBanksForRegularRequest({ request, bloodBanks = [] }) {
   if (!request || !Array.isArray(bloodBanks) || bloodBanks.length === 0) {
     return [];
@@ -556,6 +510,5 @@ async function notifyBloodBanksForRegularRequest({ request, bloodBanks = [] }) {
 module.exports = {
   sendEmailForMatches,
   processPendingEmailRetries,
-  notifyBloodBanksForEmergencyRequest,
   notifyBloodBanksForRegularRequest,
 };

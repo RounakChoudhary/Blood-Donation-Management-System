@@ -64,7 +64,7 @@ export default function CampOrganizer() {
             <div className="space-y-2">
               <h1 className="text-3xl font-bold tracking-tight text-on-surface">Organise a Blood Donation Camp</h1>
               <p className="text-sm text-on-surface-variant font-medium">
-                Submit your camp proposal with venue, timing, and organiser details. Approved camps become visible to nearby donors for discovery.
+                Submit your camp proposal with venue, timing, and organiser details. Admin-approved camps become visible to nearby donors for discovery.
               </p>
             </div>
             <div className="grid sm:grid-cols-3 gap-3">
@@ -74,7 +74,7 @@ export default function CampOrganizer() {
               </div>
               <div className="rounded-2xl bg-white/80 border border-red-100 p-4">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-primary">2. Review</p>
-                <p className="text-sm text-slate-600 mt-2">The admin team reviews and approves or rejects the proposal.</p>
+                <p className="text-sm text-slate-600 mt-2">The admin team reviews the proposal and marks it as approved or rejected.</p>
               </div>
               <div className="rounded-2xl bg-white/80 border border-red-100 p-4">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-primary">3. Discover</p>
@@ -88,7 +88,7 @@ export default function CampOrganizer() {
             <div className="space-y-3 text-sm text-slate-600">
               <p>Provide accurate latitude and longitude so donors can discover the camp nearby.</p>
               <p>Capacity is optional, but adding it helps donors understand expected turnout.</p>
-              <p>You will receive an email update once the proposal is reviewed.</p>
+              <p>You will receive an email update once the proposal is approved or rejected.</p>
             </div>
             <p className="text-sm font-medium text-slate-500">
               Back to account access? <Link to="/login" className="text-primary font-bold hover:underline">Sign in</Link>

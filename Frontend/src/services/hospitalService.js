@@ -216,43 +216,6 @@ export const createEmergencyRequest = async (payload) => {
   return payloadData;
 };
 
-export const createRegularRequest = async (payload) => {
-  const token = getStoredToken();
-
-  if (!token) {
-    throw new Error("Hospital auth token not found. Please login again.");
-  }
-
-  const requestBody = {
-    blood_group: payload?.blood_group,
-    units_required: toOptionalNumber(payload?.units_required),
-    required_date: payload?.required_date || null,
-    radius_meters: toOptionalNumber(payload?.search_radius_meters ?? 10000),
-  };
-
-  const response = await fetch(`${API_BASE_URL}/blood-banks/regular-requests`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(requestBody),
-  });
-
-  let payloadData = null;
-  try {
-    payloadData = await response.json();
-  } catch {
-    payloadData = null;
-  }
-
-  if (!response.ok) {
-    throw new Error(payloadData?.error || `Failed to create regular request (${response.status})`);
-  }
-
-  return payloadData;
-};
-
 export const rematchHospitalRequest = async (requestId, payload = {}) => {
   const token = getStoredToken();
 

@@ -1,7 +1,6 @@
 const bloodBankAuthService = require("./bloodBankAuth.service");
 const BloodBank = require("../models/bloodBank.model");
 const BloodBankInventory = require("../models/bloodBankInventory.model");
-const BloodBankDashboard = require("../models/bloodBankDashboard.model");
 const Hospital = require("../models/hospital.model");
 const { validateBloodGroup, validatePositiveInteger } = require("../utils/validation");
 
@@ -111,7 +110,6 @@ async function getBloodBankDashboard({
   blood_bank_id,
   nearby_radius_meters = 10000,
   nearby_limit = 5,
-  request_limit = 8,
 }) {
   const normalizedId = Number(blood_bank_id);
   if (!Number.isInteger(normalizedId) || normalizedId <= 0) {
@@ -123,9 +121,8 @@ async function getBloodBankDashboard({
     return { ok: false, status: 404, error: "Blood bank not found" };
   }
 
-  const [inventoryRows, incomingRequests, nearbyResult] = await Promise.all([
+  const [inventoryRows, nearbyResult] = await Promise.all([
     BloodBankInventory.getInventorySummaryByBloodBankId(normalizedId),
-    BloodBankDashboard.getIncomingRegularRequestsByBloodBankId(normalizedId, request_limit),
     findNearbyBloodBanks({
       lon: bloodBank.lon,
       lat: bloodBank.lat,
@@ -171,18 +168,12 @@ async function getBloodBankDashboard({
     });
   }
 
-  const pendingRequestCount = incomingRequests.filter((request) => {
-    const status = String(request.request_status || "").toLowerCase();
-    return status === "pending" || status === "notified";
-  }).length;
-
   return {
     ok: true,
     status: 200,
     summary: {
       total_units: totalUnits,
       low_stock_groups: lowStockGroups,
-      incoming_regular_requests: pendingRequestCount,
       nearby_banks: nearby_banks.length,
     },
     blood_bank: {
@@ -197,7 +188,6 @@ async function getBloodBankDashboard({
     },
     inventory,
     nearby_banks,
-    incoming_regular_requests: incomingRequests,
   };
 }
 

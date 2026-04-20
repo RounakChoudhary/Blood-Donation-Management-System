@@ -70,25 +70,6 @@ function mapNearbyBanks(rows = []) {
   }));
 }
 
-function mapIncomingRequests(rows = []) {
-  if (!Array.isArray(rows)) return [];
-
-  return rows.map((request) => ({
-    id: request.notification_id,
-    requestId: request.request_id,
-    hospitalName: request.hospital_name || "Hospital",
-    hospitalAddress: request.hospital_address || "Address unavailable",
-    distance: formatDistance(request.distance_meters),
-    bloodGroup: request.blood_group || "N/A",
-    unitsRequired: Number(request.units_required || 0),
-    requiredDate: formatDate(request.required_date),
-    status: String(request.request_status || "pending").toLowerCase(),
-    notificationStatus: String(request.notification_status || "pending").toLowerCase(),
-    notes: request.notes || "",
-    notifiedAt: formatDate(request.notified_at),
-  }));
-}
-
 export const getBloodBankDashboard = async () => {
   const token = getStoredToken();
 
@@ -119,7 +100,6 @@ export const getBloodBankDashboard = async () => {
     bloodBank: payloadData?.blood_bank || null,
     inventory: mapInventoryRows(payloadData?.inventory || []),
     nearbyBanks: mapNearbyBanks(payloadData?.nearby_banks || []),
-    incomingRequests: mapIncomingRequests(payloadData?.incoming_regular_requests || []),
   };
 };
 

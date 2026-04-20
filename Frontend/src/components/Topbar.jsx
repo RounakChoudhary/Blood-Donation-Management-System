@@ -16,7 +16,7 @@ export default function Topbar({
     const path = location.pathname;
     if (path.startsWith('/donor')) return 'Donor Interface';
     if (path.startsWith('/hospital')) return 'Hospital Dashboard';
-    if (path.startsWith('/blood-bank')) return 'Blood Bank Inventory';
+    if (path.startsWith('/blood-bank')) return 'Blood Bank Dashboard';
     if (path.startsWith('/admin')) return 'Platform Administration';
     if (path.startsWith('/profile')) return 'Profile & Settings';
     if (path === '/') return 'Dashboard';

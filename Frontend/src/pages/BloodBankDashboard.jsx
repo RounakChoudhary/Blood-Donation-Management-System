@@ -37,15 +37,6 @@ function getInitialStockForm() {
   };
 }
 
-function toIncomingRequestBadge(status) {
-  const normalized = String(status || '').toLowerCase();
-  if (normalized === 'fulfilled') return 'success';
-  if (normalized === 'notified') return 'matched';
-  if (normalized === 'pending') return 'pending';
-  if (normalized === 'cancelled') return 'default';
-  return 'default';
-}
-
 export default function BloodBankDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -96,9 +87,9 @@ export default function BloodBankDashboard() {
         icon: <Boxes size={20} />,
       },
       {
-        label: 'Incoming Requests',
-        value: summary.incoming_regular_requests ?? 0,
-        helper: 'Regular requests shared by hospitals',
+        label: 'Nearby Banks',
+        value: summary.nearby_banks ?? 0,
+        helper: 'Verified blood banks near your location',
         icon: <CalendarClock size={20} />,
       },
     ];
@@ -162,7 +153,7 @@ export default function BloodBankDashboard() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-on-surface">Blood Bank Dashboard</h1>
           <p className="text-sm text-on-surface-variant font-medium mt-1">
-            Track live inventory, review hospital requests, and watch nearby bank capacity.
+            Track live inventory, review hospital demand, and compare nearby blood bank availability.
           </p>
           {data?.bloodBank?.name && (
             <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mt-3">
@@ -294,70 +285,6 @@ export default function BloodBankDashboard() {
           </Card>
         </div>
       </div>
-
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-xl font-bold tracking-tight">Incoming Regular Requests</h2>
-          <Badge variant="default">{data?.incomingRequests?.length || 0} shown</Badge>
-        </div>
-        <div className="grid lg:grid-cols-2 gap-4">
-          {data?.incomingRequests?.length > 0 ? (
-            data.incomingRequests.map((request) => (
-              <Card key={request.id} className="p-5 space-y-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Request #{request.requestId}</p>
-                    <h3 className="text-lg font-bold text-on-surface mt-1">{request.hospitalName}</h3>
-                    <p className="text-sm text-slate-500 mt-1">{request.hospitalAddress}</p>
-                  </div>
-                  <Badge variant={toIncomingRequestBadge(request.status)}>{request.status}</Badge>
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-3 text-sm text-slate-700 font-medium">
-                  <div className="rounded-xl bg-slate-50 p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Need</p>
-                    <p>{request.bloodGroup} - {request.unitsRequired} unit{request.unitsRequired === 1 ? '' : 's'}</p>
-                    <p className="text-slate-500 mt-1">Required by {request.requiredDate}</p>
-                  </div>
-                  <div className="rounded-xl bg-slate-50 p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Routing</p>
-                    <p>{request.distance}</p>
-                    <p className="text-slate-500 mt-1">Notification: {request.notificationStatus}</p>
-                  </div>
-                </div>
-
-                {request.notes && (
-                  <div className="rounded-xl border border-slate-200 px-4 py-3">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Notes</p>
-                    <p className="text-sm text-slate-700">{request.notes}</p>
-                  </div>
-                )}
-
-                <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-slate-500">
-                  <span className="inline-flex items-center gap-2">
-                    <CalendarClock size={14} />
-                    Shared {request.notifiedAt}
-                  </span>
-                  {data?.bloodBank?.contactPhone && (
-                    <span className="inline-flex items-center gap-2">
-                      <Phone size={14} />
-                      Contact: {data.bloodBank.contactPhone}
-                    </span>
-                  )}
-                </div>
-              </Card>
-            ))
-          ) : (
-            <Card className="p-8 lg:col-span-2 text-center">
-              <p className="text-sm font-semibold text-slate-700">No incoming regular requests yet.</p>
-              <p className="text-sm text-slate-500 mt-2">
-                When hospitals create regular blood-bank requests near you, they will show up here.
-              </p>
-            </Card>
-          )}
-        </div>
-      </div>
-
       <Modal isOpen={isModalOpen} onClose={() => setModalOpen(false)} title="Update Stock">
         <div className="space-y-4">
           <Select
