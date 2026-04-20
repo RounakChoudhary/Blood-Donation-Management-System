@@ -6,6 +6,7 @@ const requireRole = require("../middleware/requireRole");
 
 // Public (Organisers): Propose a new blood donation camp
 router.post("/", bloodCampController.propose);
+router.get("/mine", bloodCampController.listMine);
 
 // Admin Only: Approve or reject a camp proposal
 router.post("/:id/review", auth, requireRole("admin"), bloodCampController.review);

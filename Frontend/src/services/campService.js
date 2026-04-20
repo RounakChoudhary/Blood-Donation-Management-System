@@ -38,6 +38,21 @@ function mapCamp(camp = {}) {
     capacity: camp.capacity === null || camp.capacity === undefined ? null : Number(camp.capacity),
     organiserName: camp.organiser_name || "Organiser",
     approvalStatus: camp.approval_status || null,
+    organiserPhone: camp.organiser_phone || null,
+    organiserEmail: camp.organiser_email || null,
+    assignedBloodBank: camp.assigned_blood_bank_id
+      ? {
+          id: camp.assigned_blood_bank_id,
+          name: camp.assigned_blood_bank_name || "Assigned Blood Bank",
+          address: camp.assigned_blood_bank_address || "Address unavailable",
+          contactPerson: camp.assigned_blood_bank_contact_person || null,
+          contactPhone: camp.assigned_blood_bank_contact_phone || null,
+          email: camp.assigned_blood_bank_email || null,
+        }
+      : null,
+    assignedAt: camp.assigned_at || null,
+    reviewedAt: camp.reviewed_at || null,
+    createdAt: camp.created_at || null,
     distanceKm: camp.distance_meters === null || camp.distance_meters === undefined
       ? null
       : (Number(camp.distance_meters) / 1000).toFixed(1),
@@ -65,10 +80,38 @@ export const proposeCamp = async (payload) => {
   }
 
   return {
-    message: data?.message || "Blood camp proposal submitted for review",
+    message: data?.message || "Blood camp proposal submitted and matched with the nearest blood bank",
     camp: mapCamp(data?.camp || {}),
     assignedBloodBank: data?.assigned_blood_bank || null,
   };
+};
+
+export const getOrganiserCampProposals = async (organiserEmail) => {
+  const normalizedEmail = String(organiserEmail || "").trim();
+  if (!normalizedEmail) {
+    throw new Error("Organiser email is required.");
+  }
+
+  const params = new URLSearchParams({
+    organiser_email: normalizedEmail,
+  });
+
+  const response = await fetch(`${API_BASE_URL}/camps/mine?${params.toString()}`, {
+    method: "GET",
+  });
+
+  let data = null;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(data?.error || `Failed to load camp proposals (${response.status})`);
+  }
+
+  return (data?.camps || []).map(mapCamp);
 };
 
 export const searchNearbyCamps = async ({

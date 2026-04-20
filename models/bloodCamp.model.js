@@ -150,6 +150,48 @@ async function getAssignedCampProposalsByBloodBankId(bloodBankId) {
   return rows;
 }
 
+async function getCampProposalsByOrganiserEmail(organiserEmail) {
+  const { rows } = await pool.query(
+    `
+      SELECT
+        bc.id,
+        bc.name,
+        bc.date,
+        bc.time,
+        bc.venue_name,
+        bc.address,
+        ST_X(bc.location::geometry) AS lon,
+        ST_Y(bc.location::geometry) AS lat,
+        bc.capacity,
+        bc.organiser_name,
+        bc.organiser_phone,
+        bc.organiser_email,
+        bc.approval_status,
+        bc.assigned_at,
+        bc.reviewed_at,
+        bc.created_at,
+        bb.id AS assigned_blood_bank_id,
+        bb.name AS assigned_blood_bank_name,
+        bb.address AS assigned_blood_bank_address,
+        bb.contact_person AS assigned_blood_bank_contact_person,
+        bb.contact_phone AS assigned_blood_bank_contact_phone,
+        bb.email AS assigned_blood_bank_email,
+        CASE
+          WHEN bb.location IS NOT NULL THEN ROUND(ST_Distance(bc.location, bb.location))::INT
+          ELSE NULL
+        END AS distance_meters
+      FROM blood_camps bc
+      LEFT JOIN blood_banks bb
+        ON bb.id = bc.assigned_blood_bank_id
+      WHERE LOWER(bc.organiser_email) = LOWER($1)
+      ORDER BY bc.created_at DESC
+    `,
+    [organiserEmail]
+  );
+
+  return rows;
+}
+
 async function getApprovedCampsWithinRadius(lon, lat, radius_meters, startDate = null, endDate = null) {
   let query = `
     SELECT 
@@ -199,5 +241,6 @@ module.exports = {
   updateCampStatus,
   assignCampToBloodBank,
   getAssignedCampProposalsByBloodBankId,
+  getCampProposalsByOrganiserEmail,
   getApprovedCampsWithinRadius,
 };

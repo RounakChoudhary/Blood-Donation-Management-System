@@ -82,6 +82,22 @@ async function proposeCamp(payload) {
   };
 }
 
+async function getOrganiserCampProposals({ organiser_email }) {
+  const normalizedEmail = String(organiser_email || "").trim();
+
+  if (!normalizedEmail) {
+    return { ok: false, status: 400, error: "organiser_email is required" };
+  }
+
+  const camps = await BloodCamp.getCampProposalsByOrganiserEmail(normalizedEmail);
+
+  return {
+    ok: true,
+    status: 200,
+    camps,
+  };
+}
+
 async function reviewCamp({ camp_id, status }) {
   if (!["approved", "rejected"].includes(status)) {
     return { ok: false, status: 400, error: "Invalid status. Must be 'approved' or 'rejected'" };
@@ -222,5 +238,6 @@ module.exports = {
   reviewCamp,
   searchCamps,
   getAssignedCampProposals,
+  getOrganiserCampProposals,
   reviewCampByBloodBank,
 };

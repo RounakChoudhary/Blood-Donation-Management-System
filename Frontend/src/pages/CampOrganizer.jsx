@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import Card from '../components/Card';
 import Input from '../components/Input';
 import Button from '../components/Button';
-import { CalendarDays, Clock3, Mail, Map, MapPin, Phone, TentTree, User } from 'lucide-react';
-import { proposeCamp } from '../services/campService';
+import { Building2, CalendarDays, Clock3, Mail, Map, MapPin, Phone, TentTree, User } from 'lucide-react';
+import { getOrganiserCampProposals, proposeCamp } from '../services/campService';
 
 const INITIAL_FORM = {
   name: '',
@@ -23,15 +23,36 @@ const INITIAL_FORM = {
 export default function CampOrganizer() {
   const [formData, setFormData] = useState(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [assignedBloodBank, setAssignedBloodBank] = useState(null);
+  const [proposalHistory, setProposalHistory] = useState([]);
+  const [historyEmail, setHistoryEmail] = useState('');
 
   const updateField = (field, value) => {
     setFormData((current) => ({
       ...current,
       [field]: value,
     }));
+  };
+
+  const loadProposalHistory = async (organiserEmail) => {
+    const normalizedEmail = String(organiserEmail || '').trim();
+    if (!normalizedEmail) {
+      setProposalHistory([]);
+      return;
+    }
+
+    setLoadingHistory(true);
+    try {
+      const proposals = await getOrganiserCampProposals(normalizedEmail);
+      setProposalHistory(proposals);
+    } catch (err) {
+      setError(err.message || 'Failed to load proposal history.');
+    } finally {
+      setLoadingHistory(false);
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -42,12 +63,15 @@ export default function CampOrganizer() {
     setAssignedBloodBank(null);
 
     try {
+      const organiserEmail = formData.organiser_email;
       const result = await proposeCamp({
         ...formData,
         capacity: formData.capacity ? Number(formData.capacity) : null,
       });
       setSuccess(result.message);
       setAssignedBloodBank(result.assignedBloodBank || null);
+      setHistoryEmail(organiserEmail);
+      await loadProposalHistory(organiserEmail);
       setFormData(INITIAL_FORM);
     } catch (err) {
       setError(err.message || 'Failed to submit camp proposal.');
@@ -109,8 +133,8 @@ export default function CampOrganizer() {
           <div className="p-4 rounded-xl bg-green-50 text-green-700 border border-green-200 font-medium">
             {success}
             {assignedBloodBank && (
-              <p className="text-sm mt-2">
-                Assigned blood bank: <span className="font-bold">{assignedBloodBank.name}</span>
+              <p className="text-sm mt-2 space-y-1">
+                <span>Assigned blood bank: <span className="font-bold">{assignedBloodBank.name}</span></span>
               </p>
             )}
           </div>
@@ -231,6 +255,104 @@ export default function CampOrganizer() {
               </Button>
             </div>
           </form>
+        </Card>
+
+        <Card className="space-y-6">
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold tracking-tight text-on-surface">Track Your Submitted Proposals</h2>
+              <p className="text-sm text-on-surface-variant mt-1">
+                View the assigned blood bank, current status, and review outcome using the organiser email used during submission.
+              </p>
+            </div>
+            <div className="w-full lg:max-w-md flex gap-3">
+              <div className="flex-1">
+                <Input
+                  label="Organiser Email"
+                  type="email"
+                  placeholder="organiser@example.com"
+                  icon={<Mail size={18} />}
+                  value={historyEmail}
+                  onChange={(e) => setHistoryEmail(e.target.value)}
+                />
+              </div>
+              <Button
+                type="button"
+                className="self-end"
+                disabled={loadingHistory}
+                onClick={() => {
+                  setError(null);
+                  loadProposalHistory(historyEmail);
+                }}
+              >
+                {loadingHistory ? 'Loading...' : 'View Status'}
+              </Button>
+            </div>
+          </div>
+
+          {proposalHistory.length > 0 ? (
+            <div className="grid lg:grid-cols-2 gap-4">
+              {proposalHistory.map((proposal) => (
+                <div key={proposal.id} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5 space-y-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Proposal #{proposal.id}</p>
+                      <h3 className="text-lg font-bold text-on-surface mt-1">{proposal.name}</h3>
+                      <p className="text-sm text-slate-500 mt-1">{proposal.venueName}</p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${
+                      proposal.approvalStatus === 'approved'
+                        ? 'bg-green-100 text-green-700'
+                        : proposal.approvalStatus === 'rejected'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {proposal.approvalStatus === 'approved'
+                        ? 'accepted'
+                        : proposal.approvalStatus === 'rejected'
+                          ? 'denied'
+                          : 'pending'}
+                    </span>
+                  </div>
+
+                  <div className="text-sm text-slate-700 font-medium space-y-1">
+                    <p>Date: {proposal.dateLabel}</p>
+                    <p>Time: {proposal.timeLabel}</p>
+                    <p>Address: {proposal.address}</p>
+                    <p>Capacity: {proposal.capacity || 'Open attendance'}</p>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Matched Blood Bank</p>
+                    {proposal.assignedBloodBank ? (
+                      <>
+                        <p className="font-bold text-on-surface inline-flex items-center gap-2"><Building2 size={16} /> {proposal.assignedBloodBank.name}</p>
+                        <p className="text-sm text-slate-600">{proposal.assignedBloodBank.address}</p>
+                        {proposal.assignedBloodBank.contactPhone && (
+                          <p className="text-sm text-slate-600">Phone: {proposal.assignedBloodBank.contactPhone}</p>
+                        )}
+                        {proposal.assignedBloodBank.email && (
+                          <p className="text-sm text-slate-600 break-all">Email: {proposal.assignedBloodBank.email}</p>
+                        )}
+                        {proposal.distanceKm && (
+                          <p className="text-sm text-slate-600">Distance: {proposal.distanceKm} km</p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-sm text-slate-600">No nearby verified blood bank has been matched yet.</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-6 text-center">
+              <p className="text-sm font-semibold text-slate-700">No proposals loaded yet.</p>
+              <p className="text-sm text-slate-500 mt-2">
+                Enter the organiser email used during submission to view the matched blood bank and current review status.
+              </p>
+            </div>
+          )}
         </Card>
       </div>
     </div>
