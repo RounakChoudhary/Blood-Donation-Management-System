@@ -57,7 +57,7 @@ export default function Auth({ mode = 'login' }) {
 
   const roleOptions = mode === 'register'
     ? [
-        { label: 'Donor / User', value: 'donor' },
+        { label: 'Donor', value: 'donor' },
         { label: 'Hospital', value: 'hospital' },
         { label: 'Blood Bank', value: 'bloodbank' },
       ]
@@ -218,7 +218,7 @@ export default function Auth({ mode = 'login' }) {
         emergency_contact_name: emergencyContactName,
         emergency_contact_phone: emergencyContactPhone,
       });
-      setSuccess(data.message || 'Registration successful! Check your email for the OTP.');
+      setSuccess(data.message || 'Donor registration successful! Check your email for the OTP.');
       setTimeout(() => {
         navigate('/verify-otp', { replace: true });
       }, 1500);
@@ -342,16 +342,16 @@ export default function Auth({ mode = 'login' }) {
       <Card className="w-full max-w-md space-y-6">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-on-surface">
-            {mode === 'login' && 'Welcome back'}
-            {mode === 'register' && 'Create your account'}
-            {mode === 'otp' && 'Verify your identity'}
+            {mode === 'login' && (role === 'donor' ? 'Welcome back, donor' : 'Welcome back')}
+            {mode === 'register' && (role === 'donor' ? 'Create your donor account' : 'Create your account')}
+            {mode === 'otp' && 'Verify your donor account'}
             {mode === 'forgot-password' && 'Reset your password'}
             {mode === 'reset-password' && 'Choose a new password'}
           </h2>
           <p className="text-sm text-on-surface-variant mt-1">
-            {mode === 'login' && 'Sign in to access your dashboard'}
-            {mode === 'register' && 'Join our network to save lives'}
-            {mode === 'otp' && 'Enter the 6-digit code sent to your email'}
+            {mode === 'login' && (role === 'donor' ? 'Sign in to access your donor dashboard' : 'Sign in to access your dashboard')}
+            {mode === 'register' && (role === 'donor' ? 'Register as a donor and join our lifesaving network' : 'Complete your registration to continue')}
+            {mode === 'otp' && 'Enter the 6-digit code sent to your email to activate your donor account'}
             {mode === 'forgot-password' && 'Enter your donor or admin email to receive a reset link'}
             {mode === 'reset-password' && 'Set a new password for your donor or admin account'}
           </p>
@@ -372,7 +372,7 @@ export default function Auth({ mode = 'login' }) {
         <form className="space-y-4" onSubmit={handleSubmit}>
           {showAccountType && (
             <Select
-              label="Account Type"
+              label={mode === 'register' ? 'Registration Type' : 'Account Type'}
               options={roleOptions}
               value={role}
               onChange={(e) => {
@@ -612,8 +612,8 @@ export default function Auth({ mode = 'login' }) {
           <Button type="submit" className="w-full mt-2" disabled={loading}>
             {loading ? 'Please wait...' : (
               <>
-                {mode === 'login' && 'Sign In'}
-                {mode === 'register' && 'Register'}
+                {mode === 'login' && (role === 'donor' ? 'Donor Sign In' : 'Sign In')}
+                {mode === 'register' && (role === 'donor' ? 'Register as Donor' : 'Register')}
                 {mode === 'otp' && 'Verify Code'}
                 {mode === 'forgot-password' && 'Send Reset Link'}
                 {mode === 'reset-password' && 'Update Password'}
@@ -624,13 +624,13 @@ export default function Auth({ mode = 'login' }) {
 
         <div className="text-center text-sm font-medium text-slate-500 pt-2 pb-1">
           {mode === 'login' && (
-            <p>Don&apos;t have an account? <Link to="/register" className="text-primary hover:underline font-bold">Sign up</Link></p>
+            <p>Don&apos;t have an account? <Link to="/register" className="text-primary hover:underline font-bold">Register as donor</Link></p>
           )}
           {mode === 'register' && (
-            <p>Already have an account? <Link to="/login" className="text-primary hover:underline font-bold">Sign in</Link></p>
+            <p>Already registered? <Link to="/login" className="text-primary hover:underline font-bold">Sign in</Link></p>
           )}
           {mode === 'otp' && (
-            <p>Already verified? <Link to="/login" className="text-primary hover:underline font-bold">Sign in</Link></p>
+            <p>Already verified? <Link to="/login" className="text-primary hover:underline font-bold">Donor sign in</Link></p>
           )}
           {mode === 'forgot-password' && (
             <p>Remembered it? <Link to="/login" className="text-primary hover:underline font-bold">Sign in</Link></p>

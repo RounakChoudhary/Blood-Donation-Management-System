@@ -45,12 +45,12 @@ function DonorOnboarding({ onComplete }) {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 mt-8">
-      <div className="text-center space-y-2">
-        <div className="mx-auto w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-4">
-          <HeartHandshake size={32} />
-        </div>
-        <h1 className="text-3xl font-bold tracking-tight text-on-surface">Become a Volunteer Donor</h1>
-        <p className="text-on-surface-variant font-medium">You haven't registered as a donor yet. Complete your profile below to start saving lives today.</p>
+        <div className="text-center space-y-2">
+          <div className="mx-auto w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-4">
+            <HeartHandshake size={32} />
+          </div>
+        <h1 className="text-3xl font-bold tracking-tight text-on-surface">Complete Your Donor Profile</h1>
+        <p className="text-on-surface-variant font-medium">Your account is ready. Add your donor eligibility details below to start receiving compatible requests.</p>
       </div>
 
       <Card className="p-8">
@@ -108,7 +108,7 @@ function DonorOnboarding({ onComplete }) {
             </div>
           </div>
           <Button type="submit" className="w-full py-4 text-base" disabled={submitting}>
-            {submitting ? 'Registering...' : 'Register as Volunteer'}
+            {submitting ? 'Saving...' : 'Save Donor Profile'}
           </Button>
         </form>
       </Card>
