@@ -75,9 +75,9 @@ async function updateCampStatus(id, status) {
     `
       UPDATE blood_camps
       SET 
-        approval_status = $2,
+        approval_status = $2::varchar,
         reviewed_at = CASE
-          WHEN $2 IN ('approved', 'rejected') THEN NOW()
+          WHEN $2::varchar IN ('approved', 'rejected') THEN NOW()
           ELSE reviewed_at
         END,
         updated_at = NOW()

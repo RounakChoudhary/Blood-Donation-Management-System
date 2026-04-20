@@ -223,6 +223,12 @@ export default function BloodBankDashboard() {
         </div>
       )}
 
+      {submitError && !isModalOpen && (
+        <div className="p-3 rounded-lg bg-error-container text-on-error-container text-sm font-medium">
+          {submitError}
+        </div>
+      )}
+
       <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
         {summaryCards.map((item) => (
           <Card key={item.label} className="p-5">
