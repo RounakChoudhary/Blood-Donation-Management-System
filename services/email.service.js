@@ -138,6 +138,31 @@ Blood Donation System
   return await sendEmail({ to, subject, text });
 }
 
+async function sendCampReviewOutcomeEmail({
+  to,
+  campName,
+  status,
+  bloodBankName,
+  bloodBankPhone = null,
+  bloodBankEmail = null,
+}) {
+  const normalizedStatus = String(status || "").toLowerCase();
+  const readableStatus = normalizedStatus === "approved" ? "accepted" : "denied";
+  const subject = `Blood Camp Proposal ${readableStatus.toUpperCase()}`;
+
+  const text = `Hello,
+
+Your blood donation camp proposal for "${campName}" has been ${readableStatus} by ${bloodBankName || "the assigned blood bank"}.
+${normalizedStatus === "approved" ? "The camp is now active in the system and visible for donor discovery." : "You can coordinate with another blood bank or submit an updated proposal later."}
+
+${bloodBankPhone ? `Blood bank contact phone: ${bloodBankPhone}\n` : ""}${bloodBankEmail ? `Blood bank contact email: ${bloodBankEmail}\n` : ""}
+Thank you,
+Blood Donation System
+`;
+
+  return await sendEmail({ to, subject, text });
+}
+
 async function sendRegularBloodRequestEmail({
   to,
   hospitalName,
@@ -220,6 +245,7 @@ module.exports = {
   sendOtpEmail,
   sendPasswordResetEmail,
   sendCampStatusEmail,
+  sendCampReviewOutcomeEmail,
   sendRegularBloodRequestEmail,
   sendHospitalVerificationEmail,
   sendBloodBankVerificationEmail,

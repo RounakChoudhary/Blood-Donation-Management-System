@@ -25,6 +25,7 @@ export default function CampOrganizer() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [assignedBloodBank, setAssignedBloodBank] = useState(null);
 
   const updateField = (field, value) => {
     setFormData((current) => ({
@@ -38,6 +39,7 @@ export default function CampOrganizer() {
     setSubmitting(true);
     setError(null);
     setSuccess(null);
+    setAssignedBloodBank(null);
 
     try {
       const result = await proposeCamp({
@@ -45,6 +47,7 @@ export default function CampOrganizer() {
         capacity: formData.capacity ? Number(formData.capacity) : null,
       });
       setSuccess(result.message);
+      setAssignedBloodBank(result.assignedBloodBank || null);
       setFormData(INITIAL_FORM);
     } catch (err) {
       setError(err.message || 'Failed to submit camp proposal.');
@@ -64,7 +67,7 @@ export default function CampOrganizer() {
             <div className="space-y-2">
               <h1 className="text-3xl font-bold tracking-tight text-on-surface">Organise a Blood Donation Camp</h1>
               <p className="text-sm text-on-surface-variant font-medium">
-                Submit your camp proposal with venue, timing, and organiser details. Admin-approved camps become visible to nearby donors for discovery.
+                Submit your camp proposal with venue, timing, and organiser details. Blood bank-approved camps become visible to nearby donors for discovery.
               </p>
             </div>
             <div className="grid sm:grid-cols-3 gap-3">
@@ -74,11 +77,11 @@ export default function CampOrganizer() {
               </div>
               <div className="rounded-2xl bg-white/80 border border-red-100 p-4">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-primary">2. Review</p>
-                <p className="text-sm text-slate-600 mt-2">The admin team reviews the proposal and marks it as approved or rejected.</p>
+                <p className="text-sm text-slate-600 mt-2">The nearest verified blood bank reviews the proposal and marks it as accepted or rejected.</p>
               </div>
               <div className="rounded-2xl bg-white/80 border border-red-100 p-4">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-primary">3. Discover</p>
-                <p className="text-sm text-slate-600 mt-2">Approved camps appear in donor camp discovery based on proximity.</p>
+                <p className="text-sm text-slate-600 mt-2">Accepted camps appear in donor camp discovery based on proximity.</p>
               </div>
             </div>
           </Card>
@@ -88,7 +91,7 @@ export default function CampOrganizer() {
             <div className="space-y-3 text-sm text-slate-600">
               <p>Provide accurate latitude and longitude so donors can discover the camp nearby.</p>
               <p>Capacity is optional, but adding it helps donors understand expected turnout.</p>
-              <p>You will receive an email update once the proposal is approved or rejected.</p>
+              <p>You will receive an email update once the assigned blood bank accepts or rejects your proposal.</p>
             </div>
             <p className="text-sm font-medium text-slate-500">
               Back to account access? <Link to="/login" className="text-primary font-bold hover:underline">Sign in</Link>
@@ -105,6 +108,11 @@ export default function CampOrganizer() {
         {success && (
           <div className="p-4 rounded-xl bg-green-50 text-green-700 border border-green-200 font-medium">
             {success}
+            {assignedBloodBank && (
+              <p className="text-sm mt-2">
+                Assigned blood bank: <span className="font-bold">{assignedBloodBank.name}</span>
+              </p>
+            )}
           </div>
         )}
 

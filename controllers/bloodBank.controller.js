@@ -28,7 +28,6 @@ async function getDashboard(req, res) {
       blood_bank_id: req.bloodBank.id,
       nearby_radius_meters: req.query.radius_meters,
       nearby_limit: req.query.nearby_limit,
-      request_limit: req.query.request_limit,
     });
 
     if (!result.ok) {
@@ -40,6 +39,7 @@ async function getDashboard(req, res) {
       blood_bank: result.blood_bank,
       inventory: result.inventory,
       nearby_banks: result.nearby_banks,
+      camp_proposals: result.camp_proposals,
     });
   } catch (err) {
     console.error(err);

@@ -1,6 +1,7 @@
 const bloodBankAuthService = require("./bloodBankAuth.service");
 const BloodBank = require("../models/bloodBank.model");
 const BloodBankInventory = require("../models/bloodBankInventory.model");
+const BloodCamp = require("../models/bloodCamp.model");
 const Hospital = require("../models/hospital.model");
 const { validateBloodGroup, validatePositiveInteger } = require("../utils/validation");
 
@@ -121,13 +122,14 @@ async function getBloodBankDashboard({
     return { ok: false, status: 404, error: "Blood bank not found" };
   }
 
-  const [inventoryRows, nearbyResult] = await Promise.all([
+  const [inventoryRows, nearbyResult, campProposals] = await Promise.all([
     BloodBankInventory.getInventorySummaryByBloodBankId(normalizedId),
     findNearbyBloodBanks({
       lon: bloodBank.lon,
       lat: bloodBank.lat,
       radius_meters: nearby_radius_meters,
     }),
+    BloodCamp.getAssignedCampProposalsByBloodBankId(normalizedId),
   ]);
 
   const inventory = buildInventorySnapshot(inventoryRows);
@@ -175,6 +177,7 @@ async function getBloodBankDashboard({
       total_units: totalUnits,
       low_stock_groups: lowStockGroups,
       nearby_banks: nearby_banks.length,
+      pending_camp_proposals: campProposals.filter((camp) => String(camp.approval_status || "").toLowerCase() === "pending").length,
     },
     blood_bank: {
       id: bloodBank.id,
@@ -188,6 +191,7 @@ async function getBloodBankDashboard({
     },
     inventory,
     nearby_banks,
+    camp_proposals: campProposals,
   };
 }
 

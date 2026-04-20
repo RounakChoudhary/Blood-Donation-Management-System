@@ -11,6 +11,7 @@ async function propose(req, res) {
     return res.status(result.status).json({
       message: "Blood camp proposal submitted for review",
       camp: result.camp,
+      assigned_blood_bank: result.assigned_blood_bank,
     });
   } catch (err) {
     console.error(err);
@@ -68,8 +69,54 @@ async function searchNearby(req, res) {
   }
 }
 
+async function listAssignedForBloodBank(req, res) {
+  try {
+    const result = await bloodCampService.getAssignedCampProposals({
+      blood_bank_id: req.bloodBank.id,
+    });
+
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    return res.status(result.status).json({
+      camps: result.camps,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+}
+
+async function reviewForBloodBank(req, res) {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const result = await bloodCampService.reviewCampByBloodBank({
+      camp_id: id,
+      blood_bank_id: req.bloodBank.id,
+      status,
+    });
+
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    return res.status(result.status).json({
+      message: `Camp proposal ${status} successfully`,
+      camp: result.camp,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+}
+
 module.exports = {
   propose,
   review,
   searchNearby,
+  listAssignedForBloodBank,
+  reviewForBloodBank,
 };

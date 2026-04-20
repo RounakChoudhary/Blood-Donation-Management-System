@@ -67,6 +67,7 @@ export const proposeCamp = async (payload) => {
   return {
     message: data?.message || "Blood camp proposal submitted for review",
     camp: mapCamp(data?.camp || {}),
+    assignedBloodBank: data?.assigned_blood_bank || null,
   };
 };
 

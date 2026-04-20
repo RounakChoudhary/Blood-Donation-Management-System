@@ -2,10 +2,15 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Boxes,
   CalendarClock,
+  CheckCircle2,
   Droplets,
   Hospital,
+  Mail,
+  MapPin,
   PlusCircle,
   Phone,
+  User,
+  XCircle,
 } from 'lucide-react';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -13,7 +18,7 @@ import Badge from '../components/Badge';
 import Modal from '../components/Modal';
 import Input from '../components/Input';
 import Select from '../components/Select';
-import { getBloodBankDashboard, updateStock } from '../services/bloodBankService';
+import { getBloodBankDashboard, reviewCampProposal, updateStock } from '../services/bloodBankService';
 
 const BLOOD_GROUP_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 const STOCK_ACTION_OPTIONS = [
@@ -37,6 +42,20 @@ function getInitialStockForm() {
   };
 }
 
+function getCampStatusVariant(status) {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'approved') return 'success';
+  if (normalized === 'rejected') return 'critical';
+  return 'pending';
+}
+
+function getCampStatusLabel(status) {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'approved') return 'accepted';
+  if (normalized === 'rejected') return 'denied';
+  return 'pending';
+}
+
 export default function BloodBankDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -46,6 +65,7 @@ export default function BloodBankDashboard() {
   const [submitError, setSubmitError] = useState(null);
   const [submitSuccess, setSubmitSuccess] = useState(null);
   const [stockForm, setStockForm] = useState(getInitialStockForm);
+  const [reviewingCampId, setReviewingCampId] = useState(null);
 
   const loadDashboard = async ({ showLoading = true } = {}) => {
     if (showLoading) {
@@ -92,8 +112,31 @@ export default function BloodBankDashboard() {
         helper: 'Verified blood banks near your location',
         icon: <CalendarClock size={20} />,
       },
+      {
+        label: 'Camp Proposals',
+        value: summary.pending_camp_proposals ?? 0,
+        helper: 'Pending camp proposals assigned to you',
+        icon: <Hospital size={20} />,
+      },
     ];
   }, [data]);
+
+  const handleCampReview = async (campId, status) => {
+    setReviewingCampId(campId);
+    setSubmitError(null);
+    setSubmitSuccess(null);
+
+    try {
+      const response = await reviewCampProposal(campId, status);
+      setSubmitSuccess(response.message || 'Camp proposal reviewed successfully.');
+      await loadDashboard({ showLoading: false });
+    } catch (err) {
+      console.error(err);
+      setSubmitError(err.message || 'Failed to review camp proposal.');
+    } finally {
+      setReviewingCampId(null);
+    }
+  };
 
   const handleStockUpdate = async () => {
     const quantity = Number(stockForm.quantity);
@@ -180,7 +223,7 @@ export default function BloodBankDashboard() {
         </div>
       )}
 
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
         {summaryCards.map((item) => (
           <Card key={item.label} className="p-5">
             <div className="flex items-start justify-between gap-4">
@@ -285,6 +328,96 @@ export default function BloodBankDashboard() {
           </Card>
         </div>
       </div>
+
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-xl font-bold tracking-tight">Assigned Camp Proposals</h2>
+          <Badge variant="default">{data?.campProposals?.length || 0} total</Badge>
+        </div>
+        <div className="grid lg:grid-cols-2 gap-4">
+          {data?.campProposals?.length > 0 ? (
+            data.campProposals.map((camp) => {
+              const isPending = camp.status === 'pending';
+              return (
+                <Card key={camp.id} className="p-5 space-y-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Camp Proposal #{camp.id}</p>
+                      <h3 className="text-lg font-bold text-on-surface mt-1">{camp.name}</h3>
+                      <p className="text-sm text-slate-500 mt-1">{camp.venueName}</p>
+                    </div>
+                    <Badge variant={getCampStatusVariant(camp.status)}>
+                      {getCampStatusLabel(camp.status)}
+                    </Badge>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-3 text-sm text-slate-700 font-medium">
+                    <div className="rounded-xl bg-slate-50 p-3 space-y-2">
+                      <p><span className="font-bold">Date:</span> {camp.date}</p>
+                      <p><span className="font-bold">Time:</span> {camp.time}</p>
+                      <p><span className="font-bold">Capacity:</span> {camp.capacity || 'Open attendance'}</p>
+                      <p><span className="font-bold">Distance:</span> {camp.distance}</p>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3 space-y-2">
+                      <p className="flex items-start gap-2"><User size={14} className="mt-0.5" /> {camp.organiserName}</p>
+                      <p className="flex items-start gap-2"><Phone size={14} className="mt-0.5" /> {camp.organiserPhone || 'Phone unavailable'}</p>
+                      <p className="flex items-start gap-2 break-all"><Mail size={14} className="mt-0.5" /> {camp.organiserEmail || 'Email unavailable'}</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 space-y-2">
+                    <p className="flex items-start gap-2"><MapPin size={14} className="mt-0.5" /> {camp.address}</p>
+                    {(camp.latitude !== null && camp.longitude !== null) && (
+                      <p className="text-xs text-slate-500 font-semibold">
+                        Coordinates: {camp.latitude}, {camp.longitude}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-slate-500">
+                    <span>Assigned {camp.assignedAt}</span>
+                    <span>{camp.status === 'pending' ? `Submitted ${camp.createdAt}` : `Reviewed ${camp.reviewedAt}`}</span>
+                  </div>
+
+                  {isPending ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        onClick={() => handleCampReview(camp.id, 'approved')}
+                        disabled={reviewingCampId === camp.id}
+                        className="justify-center"
+                      >
+                        <CheckCircle2 size={18} />
+                        {reviewingCampId === camp.id ? 'Saving...' : 'Accept'}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={() => handleCampReview(camp.id, 'rejected')}
+                        disabled={reviewingCampId === camp.id}
+                        className="justify-center"
+                      >
+                        <XCircle size={18} />
+                        {reviewingCampId === camp.id ? 'Saving...' : 'Deny'}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600">
+                      This proposal has already been {getCampStatusLabel(camp.status)}.
+                    </div>
+                  )}
+                </Card>
+              );
+            })
+          ) : (
+            <Card className="p-8 lg:col-span-2 text-center">
+              <p className="text-sm font-semibold text-slate-700">No camp proposals assigned yet.</p>
+              <p className="text-sm text-slate-500 mt-2">
+                New nearby camp proposals will appear here with full organiser details and review actions.
+              </p>
+            </Card>
+          )}
+        </div>
+      </div>
+
       <Modal isOpen={isModalOpen} onClose={() => setModalOpen(false)} title="Update Stock">
         <div className="space-y-4">
           <Select
