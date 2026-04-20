@@ -117,6 +117,12 @@ export default function HospitalDashboard() {
   const [isDeletingRequest, setIsDeletingRequest] = useState(false);
   const [requestForm, setRequestForm] = useState(getInitialRequestForm);
   const [recentRegularRequests, setRecentRegularRequests] = useState(readStoredRegularRequests);
+  const selectedRequest = data?.activeRequests?.find((request) => request.id === selectedRequestId) || null;
+  const canRematchSelectedRequest = Boolean(
+    selectedRequestId
+    && selectedRequest
+    && !['fulfilled', 'cancelled'].includes(String(selectedRequest.statusLabel || '').toLowerCase())
+  );
   const acceptedDonors = matchedDonors.filter((donor) => donor.rawStatus === 'accepted');
 
   const loadDashboard = async ({ showLoading = true } = {}) => {
@@ -393,7 +399,7 @@ export default function HospitalDashboard() {
       <div className="grid lg:grid-cols-2 gap-8">
         {/* Active Requests */}
         <div className="space-y-4">
-          <h2 className="text-xl font-bold tracking-tight">Active Requests</h2>
+          <h2 className="text-xl font-bold tracking-tight">Emergency Requests</h2>
           <div className="space-y-3">
             {data?.activeRequests.length > 0 ? (
               data.activeRequests.map((req) => (
@@ -443,7 +449,7 @@ export default function HospitalDashboard() {
                 </Card>
               ))
             ) : (
-              <p className="text-slate-500 text-sm p-4 text-center">No active requests.</p>
+              <p className="text-slate-500 text-sm p-4 text-center">No emergency requests yet.</p>
             )}
           </div>
         </div>
@@ -459,7 +465,7 @@ export default function HospitalDashboard() {
               variant="secondary"
               className="text-xs px-3 py-2 h-auto whitespace-nowrap"
               onClick={handleRematch}
-              disabled={isRematching || loadingMatches || !selectedRequestId}
+              disabled={isRematching || loadingMatches || !canRematchSelectedRequest}
             >
               {isRematching ? "Finding..." : "Find More Donors"}
             </Button>

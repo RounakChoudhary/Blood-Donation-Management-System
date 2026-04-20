@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "./apiBaseUrl";
-const ACTIVE_REQUEST_STATUSES = new Set(["pending", "matching", "active", "open", "matched"]);
+const ACTIVE_REQUEST_STATUSES = new Set(["pending", "matching", "active", "open", "matched", "fulfilled"]);
 
 function getStoredToken() {
   const tokenKeys = ["token", "authToken", "accessToken", "jwt", "hospitalToken"];
