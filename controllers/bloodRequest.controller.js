@@ -76,9 +76,28 @@ async function rematch(req, res) {
   }
 }
 
+async function deleteRequest(req, res) {
+  try {
+    const result = await bloodRequestService.deleteRequestForHospital({
+      hospital_id: req.hospital.id,
+      request_id: Number(req.params.id),
+    });
+
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    return res.status(result.status).json({ message: result.message });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+}
+
 module.exports = {
   createRequest,
   getRequestById,
   listMyRequests,
   rematch,
+  deleteRequest,
 };

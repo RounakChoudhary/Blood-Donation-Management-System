@@ -292,3 +292,36 @@ export const rematchHospitalRequest = async (requestId, payload = {}) => {
 
   return payloadData;
 };
+
+export const deleteHospitalRequest = async (requestId) => {
+  const token = getStoredToken();
+
+  if (!token) {
+    throw new Error("Hospital auth token not found. Please login again.");
+  }
+
+  const normalizedId = Number(requestId);
+  if (!Number.isInteger(normalizedId) || normalizedId <= 0) {
+    throw new Error("Invalid request id for delete.");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/blood-requests/${normalizedId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  let payloadData = null;
+  try {
+    payloadData = await response.json();
+  } catch {
+    payloadData = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(payloadData?.error || `Failed to delete request (${response.status})`);
+  }
+
+  return payloadData;
+};

@@ -269,6 +269,28 @@ async function listHospitalRequests({ hospital_id, limit = 50, offset = 0 }) {
   };
 }
 
+async function deleteRequestForHospital({ hospital_id, request_id }) {
+  const request = await BloodRequest.getBloodRequestById(request_id);
+  if (!request) {
+    return { ok: false, status: 404, error: "Blood request not found" };
+  }
+
+  if (Number(request.hospital_id) !== Number(hospital_id)) {
+    return { ok: false, status: 403, error: "Forbidden" };
+  }
+
+  const deleted = await BloodRequest.deleteBloodRequest(request_id);
+  if (!deleted) {
+    return { ok: false, status: 404, error: "Blood request not found or already deleted" };
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    message: "Blood request deleted successfully",
+  };
+}
+
 async function runAutoRadiusExpansionBatch({
   interval_minutes = 5,
   request_limit = 50,
@@ -365,5 +387,6 @@ module.exports = {
   getRequestForHospital,
   rematchRequest,
   listHospitalRequests,
+  deleteRequestForHospital,
   runAutoRadiusExpansionBatch,
 };

@@ -5,7 +5,7 @@ import Button from '../components/Button';
 import Modal from '../components/Modal';
 import Input from '../components/Input';
 import { AlertTriangle, MapPin } from 'lucide-react';
-import { getHospitalDashboard, getHospitalRequestDetails, createEmergencyRequest, createRegularRequest, rematchHospitalRequest } from '../services/hospitalService';
+import { getHospitalDashboard, getHospitalRequestDetails, createEmergencyRequest, createRegularRequest, rematchHospitalRequest, deleteHospitalRequest } from '../services/hospitalService';
 
 const BLOOD_GROUP_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 const REQUEST_TYPE_OPTIONS = [
@@ -114,6 +114,7 @@ export default function HospitalDashboard() {
   const [isRematching, setIsRematching] = useState(false);
   const [rematchMessage, setRematchMessage] = useState(null);
   const [rematchError, setRematchError] = useState(null);
+  const [isDeletingRequest, setIsDeletingRequest] = useState(false);
   const [requestForm, setRequestForm] = useState(getInitialRequestForm);
   const [recentRegularRequests, setRecentRegularRequests] = useState(readStoredRegularRequests);
   const acceptedDonors = matchedDonors.filter((donor) => donor.rawStatus === 'accepted');
@@ -316,6 +317,40 @@ export default function HospitalDashboard() {
     }
   };
 
+  const handleDeleteRequest = async (requestId) => {
+    if (!requestId || isDeletingRequest) {
+      return;
+    }
+
+    const confirmed = window.confirm("Delete this blood request? This action cannot be undone.");
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeletingRequest(true);
+    setSubmitError(null);
+    setSubmitSuccess(null);
+    setRematchMessage(null);
+    setRematchError(null);
+
+    try {
+      const response = await deleteHospitalRequest(requestId);
+      setSubmitSuccess(response?.message || "Blood request deleted successfully.");
+
+      if (selectedRequestId === requestId) {
+        setSelectedRequestId(null);
+        setMatchedDonors([]);
+      }
+
+      await loadDashboard({ showLoading: false });
+    } catch (err) {
+      console.error(err);
+      setSubmitError(err.message || "Failed to delete request.");
+    } finally {
+      setIsDeletingRequest(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -391,7 +426,20 @@ export default function HospitalDashboard() {
                       </div>
                     </div>
                   </div>
-                  <Badge variant={req.statusVariant}>{req.statusLabel}</Badge>
+                  <div className="flex flex-col items-end gap-2">
+                    <Badge variant={req.statusVariant}>{req.statusLabel}</Badge>
+                    <button
+                      type="button"
+                      className="text-[11px] font-semibold text-red-600 hover:text-red-700"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleDeleteRequest(req.id);
+                      }}
+                      disabled={isDeletingRequest}
+                    >
+                      {isDeletingRequest ? "Deleting..." : "Delete"}
+                    </button>
+                  </div>
                 </Card>
               ))
             ) : (
