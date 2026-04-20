@@ -6,6 +6,7 @@ import DonorDashboard from './pages/DonorDashboard';
 import HospitalDashboard from './pages/HospitalDashboard';
 import BloodBankDashboard from './pages/BloodBankDashboard';
 import CampOrganizer from './pages/CampOrganizer';
+import DonorResponseAction from './pages/DonorResponseAction';
 import AdminLayout from './pages/AdminLayout';
 import AdminOverview from './pages/AdminOverview';
 import AdminUsers from './pages/AdminUsers';
@@ -53,6 +54,8 @@ function App() {
         <Route path="/forgot-password" element={<GuestRoute><Auth mode="forgot-password" /></GuestRoute>} />
         <Route path="/reset-password" element={<GuestRoute><Auth mode="reset-password" /></GuestRoute>} />
         <Route path="/organize-camp" element={<CampOrganizer />} />
+        <Route path="/donor-requests/respond/accept" element={<DonorResponseAction action="accept" />} />
+        <Route path="/donor-requests/respond/decline" element={<DonorResponseAction action="decline" />} />
 
         {/* Dashboard Routes — only accessible when logged in */}
         <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
