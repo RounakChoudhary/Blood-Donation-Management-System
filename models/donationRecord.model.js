@@ -1,5 +1,38 @@
 const pool = require("./db");
 
+async function createDonationRecord({
+  donor_id,
+  hospital_id,
+  blood_group,
+  units = 1,
+  donation_date = null,
+}) {
+  const { rows } = await pool.query(
+    `
+      INSERT INTO donation_records (
+        donor_id,
+        hospital_id,
+        blood_group,
+        units,
+        donation_date
+      )
+      VALUES ($1, $2, $3, $4, COALESCE($5::date, CURRENT_DATE))
+      RETURNING
+        id,
+        donor_id,
+        hospital_id,
+        blood_group,
+        units,
+        donation_date,
+        created_at,
+        updated_at
+    `,
+    [donor_id, hospital_id, blood_group, units, donation_date]
+  );
+
+  return rows[0] || null;
+}
+
 async function getDonationRecordsByDonorId(donor_id) {
   const { rows } = await pool.query(
     `
@@ -74,6 +107,7 @@ async function getDonationReportByBloodGroup() {
 }
 
 module.exports = {
+  createDonationRecord,
   getDonationRecordsByDonorId,
   countDonationRecords,
   getDonationReportSummary,

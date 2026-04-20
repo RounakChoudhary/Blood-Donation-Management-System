@@ -1,9 +1,51 @@
 const Match = require("../models/bloodRequestMatch.model");
 const Donor = require("../models/donor.model");
+const DonationRecord = require("../models/donationRecord.model");
 const responseTokenService = require("./responseToken.service");
 const BloodRequest = require("../models/bloodRequest.model");
 const { sendHospitalDonorAcceptanceEmail } = require("./email.service");
+const systemConfigModel = require("../models/systemConfig.model");
 const ACTIONABLE_MATCH_STATUSES = new Set(["pending", "notified"]);
+const DEFAULT_COOLDOWN_DAYS = 120;
+
+async function getCooldownDays() {
+  const config = await systemConfigModel.getSystemConfig();
+  const cooldownDays = Number(config?.cooldown_days);
+  if (Number.isInteger(cooldownDays) && cooldownDays > 0) {
+    return cooldownDays;
+  }
+  return DEFAULT_COOLDOWN_DAYS;
+}
+
+async function finalizeAcceptedDonation({ match, donor_id }) {
+  const cooldownDays = await getCooldownDays();
+  const donationSnapshot = await Donor.markDonated({
+    donor_id,
+    donation_date: new Date().toISOString().slice(0, 10),
+    cooldown_days: cooldownDays,
+  });
+
+  const donor = await Donor.updateAvailabilityByDonorId({
+    donor_id,
+    availability_status: "unavailable",
+  });
+
+  const context = await Match.getMatchResponseContext(match.id);
+  if (context?.hospital_id && context?.blood_group) {
+    await DonationRecord.createDonationRecord({
+      donor_id,
+      hospital_id: context.hospital_id,
+      blood_group: context.blood_group,
+      units: 1,
+      donation_date: donationSnapshot?.last_donation_date || null,
+    });
+  }
+
+  return {
+    donor: donor || donationSnapshot || null,
+    context,
+  };
+}
 
 async function syncRequestStatusForMatch(matchOrId) {
   const match = typeof matchOrId === "object" ? matchOrId : await Match.getMatchById(matchOrId);
@@ -72,16 +114,16 @@ async function acceptRequest({ user_id, match_id }) {
     response_channel: "email",
     responded_at: new Date(),
   });
-  await Donor.updateAvailabilityByDonorId({
+  const acceptanceResult = await finalizeAcceptedDonation({
+    match,
     donor_id: donor.id,
-    availability_status: "unavailable",
   });
   await responseTokenService.consumeTokensForMatch({
     match_id: match.id,
     donor_id: donor.id,
   });
 
-  const context = await Match.getMatchResponseContext(match_id);
+  const context = acceptanceResult.context;
   if (context?.hospital_email) {
     await sendHospitalDonorAcceptanceEmail({
       to: context.hospital_email,
@@ -99,6 +141,7 @@ async function acceptRequest({ user_id, match_id }) {
     ok: true,
     status: 200,
     match: updated,
+    donor: acceptanceResult.donor,
   };
 }
 
@@ -187,11 +230,12 @@ async function respondToRequestByToken({ token, action }) {
   let context = null;
 
   if (action === "accepted") {
-    donor = await Donor.updateAvailabilityByDonorId({
+    const acceptanceResult = await finalizeAcceptedDonation({
+      match,
       donor_id: match.donor_id,
-      availability_status: "unavailable",
     });
-    context = await Match.getMatchResponseContext(match.id);
+    donor = acceptanceResult.donor;
+    context = acceptanceResult.context;
 
     if (context?.hospital_email) {
       await sendHospitalDonorAcceptanceEmail({
